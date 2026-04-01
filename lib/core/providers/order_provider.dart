@@ -3,11 +3,8 @@ import '../models/order.dart';
 import '../services/firebase_service.dart';
 
 final ordersProvider = StreamProvider.family<List<Order>, OrderFilter>((ref, filter) {
-  return FirebaseService.getOrders(
-    areaCode: filter.areaCode,
-    startDate: filter.startDate,
-    endDate: filter.endDate,
-  );
+  // Pass the filter object directly
+  return FirebaseService.getOrders(filter: filter);
 });
 
 final orderNotifierProvider = Provider<OrderNotifier>((ref) {
@@ -21,21 +18,29 @@ class OrderNotifier {
 }
 
 class OrderFilter {
-  final String? areaCode;
+  // CHANGED: From String? areaCode to List<String>? assignedAreas
+  final List<String>? assignedAreas;
   final DateTime? startDate;
   final DateTime? endDate;
+  final OrderStatus? status;
 
-  OrderFilter({this.areaCode, this.startDate, this.endDate});
+  OrderFilter({this.assignedAreas, this.startDate, this.endDate, this.status});
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is OrderFilter &&
           runtimeType == other.runtimeType &&
-          areaCode == other.areaCode &&
+          // Note: Deep equality for lists is complex, but for Riverpod this is often sufficient.
+          assignedAreas == other.assignedAreas &&
           startDate == other.startDate &&
-          endDate == other.endDate;
+          endDate == other.endDate &&
+          status == other.status;
 
   @override
-  int get hashCode => areaCode.hashCode ^ startDate.hashCode ^ endDate.hashCode;
+  int get hashCode =>
+      assignedAreas.hashCode ^
+      startDate.hashCode ^
+      endDate.hashCode ^
+      status.hashCode;
 }

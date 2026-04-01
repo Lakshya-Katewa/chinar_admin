@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../features/banner/banner_screen.dart';
 import '../providers/auth_provider.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
@@ -57,6 +58,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/customers',
             builder: (context, state) => const CustomersScreen(),
+          ),
+          // NEW: Route for the Banners screen
+          GoRoute(
+            path: '/banners',
+            builder: (context, state) => const BannersScreen(),
           ),
         ],
       ),

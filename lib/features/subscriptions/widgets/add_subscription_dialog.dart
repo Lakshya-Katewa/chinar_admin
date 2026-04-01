@@ -4,328 +4,332 @@ import 'package:uuid/uuid.dart';
 import '../../../core/models/subscription.dart';
 import '../../../core/providers/subscription_provider.dart';
 
-class AddSubscriptionDialog extends ConsumerStatefulWidget {
-  const AddSubscriptionDialog({super.key});
+class AddEditSubscriptionDialog extends ConsumerStatefulWidget {
+  final Subscription? subscription;
+
+  const AddEditSubscriptionDialog({super.key, this.subscription});
 
   @override
-  ConsumerState<AddSubscriptionDialog> createState() => _AddSubscriptionDialogState();
+  ConsumerState<AddEditSubscriptionDialog> createState() => _AddEditSubscriptionDialogState();
 }
 
-class _AddSubscriptionDialogState extends ConsumerState<AddSubscriptionDialog> {
+class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
+  final _customerNameController = TextEditingController();
   final _productNameController = TextEditingController();
   final _quantityController = TextEditingController();
   final _priceController = TextEditingController();
-  final _areaCodeController = TextEditingController();
-  final _addressController = TextEditingController();
   
   SubscriptionType _selectedType = SubscriptionType.monthly;
+  SubscriptionStatus _selectedStatus = SubscriptionStatus.active;
   DateTime _startDate = DateTime.now();
+  DateTime? _endDate;
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.subscription != null) {
+      _customerNameController.text = widget.subscription!.customerName;
+      _productNameController.text = widget.subscription!.productName;
+      _quantityController.text = widget.subscription!.quantity.toString();
+      _priceController.text = widget.subscription!.pricePerUnit.toString();
+      _selectedType = widget.subscription!.type;
+      _selectedStatus = widget.subscription!.status ?? SubscriptionStatus.active;
+      _startDate = widget.subscription!.startDate;
+      _endDate = widget.subscription!.endDate;
+    }
+  }
+
+  @override
   void dispose() {
-    _nameController.dispose();
-    _phoneController.dispose();
-    _emailController.dispose();
+    _customerNameController.dispose();
     _productNameController.dispose();
     _quantityController.dispose();
     _priceController.dispose();
-    _areaCodeController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
   Future<void> _saveSubscription() async {
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
+      final quantity = double.parse(_quantityController.text);
+      final pricePerUnit = double.parse(_priceController.text);
+
       final subscription = Subscription(
-        id: const Uuid().v4(),
-        customerName: _nameController.text,
-        customerPhone: _phoneController.text,
-        customerEmail: _emailController.text,
-        productId: const Uuid().v4(), // In real app, this would be selected from products
-        productName: _productNameController.text,
+        id: widget.subscription?.id ?? const Uuid().v4(),
+        customerName: _customerNameController.text.trim(),
+        customerPhone: widget.subscription?.customerPhone ?? '',
+        customerEmail: widget.subscription?.customerEmail ?? '',
+        productId: widget.subscription?.productId ?? const Uuid().v4(),
+        productName: _productNameController.text.trim(),
         type: _selectedType,
         startDate: _startDate,
-        endDate: null,
-        isActive: true,
-        quantity: double.parse(_quantityController.text),
-        pricePerUnit: double.parse(_priceController.text),
-        areaCode: _areaCodeController.text,
-        address: _addressController.text,
+        endDate: _endDate,
+        status: _selectedStatus,
+        quantity: quantity,
+        pricePerUnit: pricePerUnit,
+        totalAmount: quantity * pricePerUnit,
+        areaCode: widget.subscription?.areaCode ?? '',
+        address: widget.subscription?.address ?? '', customerId: '', isActive: true, createdAt: DateTime.now()
       );
 
-      await ref.read(subscriptionNotifierProvider).addSubscription(subscription);
+      if (widget.subscription == null) {
+        await ref.read(subscriptionNotifierProvider).addSubscription(subscription);
+      } else {
+        await ref.read(subscriptionNotifierProvider).updateSubscription(subscription);
+      }
 
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Subscription added successfully')),
+          SnackBar(
+            content: Text(widget.subscription == null ? 'Subscription added successfully' : 'Subscription updated successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding subscription: $e')),
+          SnackBar(content: Text('Error saving subscription: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add New Subscription'),
-      content: SizedBox(
-        width: 500,
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Customer Name',
-                    border: OutlineInputBorder(),
+    return Dialog(
+      child: Container(
+        width: 450,
+        constraints: const BoxConstraints(maxHeight: 550),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(widget.subscription == null ? Icons.add : Icons.edit, 
+                       color: Theme.of(context).primaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    widget.subscription == null ? 'Add Subscription' : 'Edit Subscription',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter customer name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _phoneController,
-                        decoration: const InputDecoration(
-                          labelText: 'Phone',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.phone,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter phone number';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter email';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Please enter a valid email';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _productNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Product Name',
-                    border: OutlineInputBorder(),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter product name';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<SubscriptionType>(
-                        value: _selectedType,
-                        decoration: const InputDecoration(
-                          labelText: 'Subscription Type',
-                          border: OutlineInputBorder(),
-                        ),
-                        items: SubscriptionType.values.map((type) {
-                          String text;
-                          switch (type) {
-                            case SubscriptionType.monthly:
-                              text = 'Monthly';
-                              break;
-                            case SubscriptionType.weekly:
-                              text = 'Weekly';
-                              break;
-                            case SubscriptionType.alternateDay:
-                              text = 'Alternate Day';
-                              break;
-                          }
-                          return DropdownMenuItem(
-                            value: type,
-                            child: Text(text),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedType = value!;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        decoration: const InputDecoration(
-                          labelText: 'Start Date',
-                          border: OutlineInputBorder(),
-                          suffixIcon: Icon(Icons.calendar_today),
-                        ),
-                        readOnly: true,
-                        onTap: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            initialDate: _startDate,
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(const Duration(days: 365)),
-                          );
-                          if (date != null) {
-                            setState(() {
-                              _startDate = date;
-                            });
-                          }
-                        },
-                        controller: TextEditingController(
-                          text: '${_startDate.day}/${_startDate.month}/${_startDate.year}',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _quantityController,
-                        decoration: const InputDecoration(
-                          labelText: 'Quantity',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter quantity';
-                          }
-                          if (double.tryParse(value) == null) {
-                            return 'Please enter a valid quantity';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _priceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Price per Unit (₹)',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter price';
-                          }
-                          if (double.tryParse(value) == null) {
-                            return 'Please enter a valid price';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _areaCodeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Area Code',
-                    border: OutlineInputBorder(),
-                    hintText: 'e.g., DELHI-NORTH',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter area code';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _addressController,
-                  decoration: const InputDecoration(
-                    labelText: 'Address',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 3,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter address';
-                    }
-                    return null;
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        TextFormField(
+                          controller: _customerNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Customer Name *',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.person),
+                          ),
+                          validator: (value) => value?.isEmpty == true ? 'Please enter customer name' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _productNameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Product Name *',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.shopping_bag),
+                          ),
+                          validator: (value) => value?.isEmpty == true ? 'Please enter product name' : null,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _quantityController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Quantity *',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.numbers),
+                                ),
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  if (value?.isEmpty == true) return 'Please enter quantity';
+                                  if (double.tryParse(value!) == null) return 'Invalid quantity';
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                controller: _priceController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Price (₹) *',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.currency_rupee),
+                                ),
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  if (value?.isEmpty == true) return 'Please enter price';
+                                  if (double.tryParse(value!) == null) return 'Invalid price';
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<SubscriptionType>(
+                          value: _selectedType,
+                          decoration: const InputDecoration(
+                            labelText: 'Subscription Type *',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.repeat),
+                          ),
+                          items: SubscriptionType.values.map((type) {
+                            String text = switch (type) {
+                              SubscriptionType.monthly => 'Monthly',
+                              SubscriptionType.weekly => 'Weekly',
+                              SubscriptionType.alternateDay => 'Alternate Day',
+                            };
+                            return DropdownMenuItem(value: type, child: Text(text));
+                          }).toList(),
+                          onChanged: (value) => setState(() => _selectedType = value!),
+                        ),
+                        if (widget.subscription != null) ...[
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<SubscriptionStatus>(
+                            value: _selectedStatus,
+                            decoration: const InputDecoration(
+                              labelText: 'Status *',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.info),
+                            ),
+                            items: SubscriptionStatus.values.map((status) {
+                              String text = switch (status) {
+                                SubscriptionStatus.active => 'Active',
+                                SubscriptionStatus.paused => 'Paused',
+                                SubscriptionStatus.cancelled => 'Cancelled',
+                                SubscriptionStatus.expired => 'Expired',
+                              };
+                              return DropdownMenuItem(value: status, child: Text(text));
+                            }).toList(),
+                            onChanged: (value) => setState(() => _selectedStatus = value!),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                decoration: const InputDecoration(
+                                  labelText: 'Start Date *',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.calendar_today),
+                                ),
+                                readOnly: true,
+                                onTap: () async {
+                                  final date = await showDatePicker(
+                                    context: context,
+                                    initialDate: _startDate,
+                                    firstDate: DateTime(2020),
+                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                  );
+                                  if (date != null) setState(() => _startDate = date);
+                                },
+                                controller: TextEditingController(
+                                  text: '${_startDate.day}/${_startDate.month}/${_startDate.year}',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: TextFormField(
+                                decoration: const InputDecoration(
+                                  labelText: 'End Date',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.event),
+                                ),
+                                readOnly: true,
+                                onTap: () async {
+                                  final date = await showDatePicker(
+                                    context: context,
+                                    initialDate: _endDate ?? _startDate.add(const Duration(days: 30)),
+                                    firstDate: _startDate,
+                                    lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                                  );
+                                  if (date != null) setState(() => _endDate = date);
+                                },
+                                controller: TextEditingController(
+                                  text: _endDate != null ? '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}' : '',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(12),
+                  bottomRight: Radius.circular(12),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _isLoading ? null : () => Navigator.pop(context),
+                    child: const Text('Cancel'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: _isLoading ? null : _saveSubscription,
+                    child: _isLoading
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Text(widget.subscription == null ? 'Add Subscription' : 'Update Subscription'),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : _saveSubscription,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Add Subscription'),
-        ),
-      ],
     );
   }
 }

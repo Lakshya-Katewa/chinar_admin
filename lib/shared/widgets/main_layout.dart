@@ -84,6 +84,13 @@ class MainLayout extends ConsumerWidget {
               title: 'Customers',
               route: '/customers',
             ),
+            // NEW: Navigation item for Banners in the drawer
+            _buildDrawerItem(
+              context,
+              icon: Icons.view_carousel_outlined,
+              title: 'Banners',
+              route: '/banners',
+            ),
           ],
         ),
       ),

@@ -64,14 +64,31 @@ class ProductsScreen extends ConsumerWidget {
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
+            leading: product.imageUrl != null 
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      product.imageUrl!,
+                      width: 50,
+                      height: 50,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => 
+                          const Icon(Icons.image_not_supported),
+                    ),
+                  )
+                : const Icon(Icons.shopping_bag),
             title: Text(product.name),
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(product.description),
                 Text(
-                  '₹${product.price} per ${product.quantity}${product.unit == ProductUnit.liters ? 'L' : 'g'}',
+                  '₹${product.price} per ${product.unitText}',
                   style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                Text(
+                  'Category: ${product.category}',
+                  style: const TextStyle(fontSize: 12),
                 ),
                 Text(
                   'Type: ${_getProductTypeText(product.type)}',
@@ -118,19 +135,19 @@ class ProductsScreen extends ConsumerWidget {
 
   String _getProductTypeText(ProductType type) {
     switch (type) {
-      case ProductType.buyOnce:
-        return 'Buy Once';
+      case ProductType.oneTimeOnly:
+        return 'One Time Only';
+      case ProductType.general:
+        return 'General';
       case ProductType.subscription:
         return 'Subscription';
-      case ProductType.both:
-        return 'Both';
     }
   }
 
   void _showAddProductDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
-      builder: (context) => AddEditProductDialog(),
+      builder: (context) => const AddEditProductDialog(),
     );
   }
 
