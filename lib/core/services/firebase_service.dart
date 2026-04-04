@@ -9,8 +9,8 @@ import '../models/delivery_person.dart';
 import '../models/order.dart';
 import '../models/product.dart';
 import '../models/subscription.dart';
-import '../providers/order_provider.dart'; // Import for OrderFilter
-import '../providers/subscription_provider.dart'; // Import for SubscriptionFilter
+import '../providers/order_provider.dart';
+import '../providers/subscription_provider.dart';
 
 class FirebaseService {
   static final firestore.FirebaseFirestore _firestore =
@@ -18,6 +18,72 @@ class FirebaseService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
   static final storage.FirebaseStorage _storage =
       storage.FirebaseStorage.instance;
+
+  // --- NEW: DAILY SETTLEMENT FOR STALE ORDERS (REQ 2) ---
+  static Future<void> runDailySettlement() async {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+
+    try {
+      final staleOrdersSnapshot = await _firestore
+          .collection('orders')
+          .where(
+            'deliveryDate',
+            isLessThan: firestore.Timestamp.fromDate(todayStart),
+          )
+          .get();
+
+      if (staleOrdersSnapshot.docs.isEmpty) return;
+
+      final batch = _firestore.batch();
+
+      for (var doc in staleOrdersSnapshot.docs) {
+        final order = Order.fromFirestore(doc);
+
+        if (order.status == OrderStatus.pending ||
+            order.status == OrderStatus.confirmed ||
+            order.status == OrderStatus.preparing ||
+            order.status == OrderStatus.outForDelivery) {
+          batch.update(doc.reference, {
+            'status': OrderStatus.cancelled.name,
+            'updatedAt': firestore.Timestamp.now(),
+            'notes': 'Auto-cancelled: Not delivered on scheduled date.',
+          });
+
+          if (order.paymentMethod == 'wallet' ||
+              order.paymentMethod == 'razorpay') {
+            final customerRef = _firestore
+                .collection('customers')
+                .doc(order.customerId);
+            batch.update(customerRef, {
+              'walletBalance': firestore.FieldValue.increment(
+                order.totalAmount,
+              ),
+              'updatedAt': firestore.Timestamp.now(),
+            });
+
+            final transactionRef = _firestore.collection('transactions').doc();
+            batch.set(transactionRef, {
+              'customerId': order.customerId,
+              'amount': order.totalAmount,
+              'type': 'credit',
+              'description':
+                  'Auto-Refund for un-delivered order #${order.id.substring(0, 8)}',
+              'orderId': order.id,
+              'paymentMethod': 'refund',
+              'createdAt': firestore.Timestamp.now(),
+            });
+          }
+        }
+      }
+
+      await batch.commit();
+      print("Daily settlement completed successfully.");
+    } catch (e) {
+      print("Error running daily settlement: $e");
+      throw Exception('Failed to run daily settlement: $e');
+    }
+  }
 
   static Stream<List<DeliveryPerson>> getDeliveryPersons() {
     return _firestore
@@ -60,7 +126,6 @@ class FirebaseService {
     }
   }
 
-  // NEW: Method to upload banner images to Firebase Storage
   static Future<String> uploadBannerImage({
     required File file,
     required String bannerId,
@@ -76,7 +141,6 @@ class FirebaseService {
     }
   }
 
-  // Auth
   static Future<User?> signInWithEmailAndPassword(
     String email,
     String password,
@@ -97,8 +161,7 @@ class FirebaseService {
   }
 
   static User? get currentUser => _auth.currentUser;
-  
-  // Banners - NEW SECTION for Banner Firestore operations
+
   static Stream<List<Banner>> getBanners() {
     return _firestore
         .collection('banners')
@@ -111,12 +174,10 @@ class FirebaseService {
   }
 
   static Future<void> addBanner(Banner banner) async {
-    // We use .add() and let Firestore generate the ID.
     await _firestore.collection('banners').add(banner.toFirestore());
   }
 
   static Future<void> updateBanner(Banner banner) async {
-    // We update the document using the existing banner ID.
     await _firestore
         .collection('banners')
         .doc(banner.id)
@@ -124,19 +185,15 @@ class FirebaseService {
   }
 
   static Future<void> deleteBanner(String bannerId) async {
-    // Also delete the image from storage to save space.
     try {
       final ref = _storage.ref('banner_images/$bannerId');
       await ref.delete();
     } catch (e) {
-      // Ignore errors if the file doesn't exist.
       print("Failed to delete banner image: $e");
     }
     await _firestore.collection('banners').doc(bannerId).delete();
   }
 
-
-  // Products
   static Stream<List<Product>> getProducts() {
     return _firestore
         .collection('products')
@@ -163,16 +220,16 @@ class FirebaseService {
     await _firestore.collection('products').doc(productId).delete();
   }
 
-  // Orders
-  // UPDATED to handle a list of assigned areas
   static Stream<List<Order>> getOrders({required OrderFilter filter}) {
-    firestore.Query query =
-        _firestore.collection('orders').orderBy('orderDate', descending: true);
+    firestore.Query query = _firestore
+        .collection('orders')
+        .orderBy('orderDate', descending: true);
 
-    // CHANGED: Logic to handle a list of areas using 'whereIn'
     if (filter.assignedAreas != null && filter.assignedAreas!.isNotEmpty) {
-      query =
-          query.where('deliveryAddress.pinCode', whereIn: filter.assignedAreas);
+      query = query.where(
+        'deliveryAddress.pinCode',
+        whereIn: filter.assignedAreas,
+      );
     }
 
     if (filter.startDate != null) {
@@ -192,14 +249,11 @@ class FirebaseService {
     }
 
     return query.snapshots().map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Order.fromFirestore(doc)).toList(),
-        );
+      (snapshot) =>
+          snapshot.docs.map((doc) => Order.fromFirestore(doc)).toList(),
+    );
   }
 
-  // NEW FUNCTION to get delivered orders for a specific person.
-  // NOTE: This requires that your 'orders' collection documents have a
-  // 'deliveryPersonId' field linking them to a delivery person.
   static Stream<List<Order>> getDeliveredOrdersForPersonSince({
     required String personId,
     DateTime? lastPaymentDate,
@@ -209,16 +263,17 @@ class FirebaseService {
         .where('status', isEqualTo: OrderStatus.delivered.name)
         .where('deliveryPersonId', isEqualTo: personId);
 
-    // If a last payment date is available, only fetch orders delivered after it.
     if (lastPaymentDate != null) {
-      query = query.where('deliveryDate',
-          isGreaterThan: firestore.Timestamp.fromDate(lastPaymentDate));
+      query = query.where(
+        'deliveryDate',
+        isGreaterThan: firestore.Timestamp.fromDate(lastPaymentDate),
+      );
     }
 
     return query.snapshots().map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => Order.fromFirestore(doc)).toList(),
-        );
+      (snapshot) =>
+          snapshot.docs.map((doc) => Order.fromFirestore(doc)).toList(),
+    );
   }
 
   static Future<void> updateOrderStatus(
@@ -232,9 +287,9 @@ class FirebaseService {
     });
   }
 
-  // Subscriptions
-  static Stream<List<Subscription>> getSubscriptions(
-      {required SubscriptionFilter filter}) {
+  static Stream<List<Subscription>> getSubscriptions({
+    required SubscriptionFilter filter,
+  }) {
     firestore.Query query = _firestore
         .collection('subscriptions')
         .orderBy('createdAt', descending: true);
@@ -244,10 +299,9 @@ class FirebaseService {
     }
 
     return query.snapshots().map(
-          (snapshot) => snapshot.docs
-              .map((doc) => Subscription.fromFirestore(doc))
-              .toList(),
-        );
+      (snapshot) =>
+          snapshot.docs.map((doc) => Subscription.fromFirestore(doc)).toList(),
+    );
   }
 
   static Future<void> addSubscription(Subscription subscription) async {
@@ -263,7 +317,6 @@ class FirebaseService {
         .update(subscription.toFirestore());
   }
 
-  // Areas
   static Stream<List<Area>> getAreas() {
     return _firestore
         .collection('areas')
@@ -283,7 +336,6 @@ class FirebaseService {
     await _firestore.collection('areas').doc(areaId).delete();
   }
 
-  // Customers
   static Stream<List<Customer>> getCustomers() {
     return _firestore
         .collection('customers')
@@ -302,7 +354,6 @@ class FirebaseService {
         .update(customer.toFirestore());
   }
 
-  // Dashboard Analytics
   static Future<Map<String, dynamic>> getDashboardData() async {
     try {
       final today = DateTime.now();
@@ -310,18 +361,6 @@ class FirebaseService {
       final todayEnd = todayStart.add(const Duration(days: 1));
       final tomorrow = todayStart.add(const Duration(days: 1));
       final tomorrowEnd = tomorrow.add(const Duration(days: 1));
-
-      final allProducts = await _firestore.collection('products').get();
-      final Map<String, ProductCategory> productCategories = {};
-
-      for (var doc in allProducts.docs) {
-        try {
-          final product = Product.fromFirestore(doc);
-          productCategories[product.name.toLowerCase()] = product.category;
-        } catch (e) {
-          continue;
-        }
-      }
 
       final todayDeliveries = await _firestore
           .collection('orders')
@@ -347,8 +386,9 @@ class FirebaseService {
           )
           .get();
 
-      final allSubscriptions =
-          await _firestore.collection('subscriptions').get();
+      final allSubscriptions = await _firestore
+          .collection('subscriptions')
+          .get();
 
       int activeSubscriptionCount = 0;
       List<Subscription> validActiveSubscriptions = [];
@@ -421,8 +461,13 @@ class FirebaseService {
     }
   }
 
+  // --- REQ 3: UPDATED SUBSCRIPTION LOGIC ---
   static bool _isSubscriptionActiveToday(
-      Subscription subscription, DateTime today) {
+    Subscription subscription,
+    DateTime today,
+  ) {
+    if (subscription.status != SubscriptionStatus.active) return false;
+
     final todayDate = DateTime(today.year, today.month, today.day);
     final startDate = DateTime(
       subscription.startDate.year,
@@ -430,18 +475,24 @@ class FirebaseService {
       subscription.startDate.day,
     );
 
-    if (subscription.endDate == null) {
-      return !todayDate.isBefore(startDate);
+    if (todayDate.isBefore(startDate)) return false;
+
+    int targetDeliveries = 0;
+    switch (subscription.type) {
+      case SubscriptionType.monthly:
+        targetDeliveries = 30;
+        break;
+      case SubscriptionType.weekly:
+        targetDeliveries = 7;
+        break;
+      case SubscriptionType.alternateDay:
+        targetDeliveries = 15;
+        break;
+      default:
+        targetDeliveries = 30;
     }
 
-    final endDate = DateTime(
-      subscription.endDate!.year,
-      subscription.endDate!.month,
-      subscription.endDate!.day,
-    );
-
-    return todayDate.isAfter(startDate.subtract(const Duration(days: 1))) &&
-        todayDate.isBefore(endDate.add(const Duration(days: 1)));
+    return subscription.deliveredCount < targetDeliveries;
   }
 
   static bool _shouldDeliverOnDate(Subscription subscription, DateTime date) {
@@ -450,13 +501,11 @@ class FirebaseService {
     }
 
     final daysSinceStart = date.difference(subscription.startDate).inDays;
-    if (daysSinceStart < 0) return false;
 
     switch (subscription.type) {
       case SubscriptionType.monthly:
-        return date.day == subscription.startDate.day;
       case SubscriptionType.weekly:
-        return date.weekday == subscription.startDate.weekday;
+        return true;
       case SubscriptionType.alternateDay:
         return daysSinceStart % 2 == 0;
       default:

@@ -67,20 +67,20 @@ class _AddEditBannerDialogState extends ConsumerState<AddEditBannerDialog> {
       if (isUpdating) {
         await notifier.updateBanner(
           bannerId: widget.banner!.id!,
-          title: _titleController.text,
-          subtitle: _subtitleController.text,
+          title: _titleController.text.trim(), // Trim empty spaces
+          subtitle: _subtitleController.text.trim(),
           actionType: _actionType,
-          target: _targetController.text,
+          target: _targetController.text.trim(),
           isActive: _isActive,
           imageFile: _imageFile,
           existingImageUrl: widget.banner!.imageUrl,
         );
       } else {
         await notifier.addBanner(
-          title: _titleController.text,
-          subtitle: _subtitleController.text,
+          title: _titleController.text.trim(),
+          subtitle: _subtitleController.text.trim(),
           actionType: _actionType,
-          target: _targetController.text,
+          target: _targetController.text.trim(),
           isActive: _isActive,
           imageFile: _imageFile!,
         );
@@ -109,14 +109,22 @@ class _AddEditBannerDialogState extends ConsumerState<AddEditBannerDialog> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _titleController,
-                decoration: const InputDecoration(labelText: 'Title'),
-                validator: (v) => v!.isEmpty ? 'Required' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Title (Optional)',
+                  hintText: 'Leave blank if not needed',
+                ),
+                // REMOVED VALIDATOR
               ),
+              const SizedBox(height: 8),
               TextFormField(
                 controller: _subtitleController,
-                decoration: const InputDecoration(labelText: 'Subtitle'),
-                validator: (v) => v!.isEmpty ? 'Required' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Subtitle (Optional)',
+                  hintText: 'Leave blank if not needed',
+                ),
+                // REMOVED VALIDATOR
               ),
+              const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _actionType,
                 decoration: const InputDecoration(labelText: 'Action Type'),
@@ -125,11 +133,14 @@ class _AddEditBannerDialogState extends ConsumerState<AddEditBannerDialog> {
                     .toList(),
                 onChanged: (v) => setState(() => _actionType = v!),
               ),
+              const SizedBox(height: 8),
               TextFormField(
                 controller: _targetController,
                 decoration: const InputDecoration(
-                    labelText: 'Target (e.g., Category Name or Product ID)'),
+                  labelText: 'Target (e.g., Category Name or Product ID)',
+                ),
               ),
+              const SizedBox(height: 8),
               SwitchListTile(
                 title: const Text('Active'),
                 value: _isActive,
@@ -175,19 +186,21 @@ class _AddEditBannerDialogState extends ConsumerState<AddEditBannerDialog> {
                 child: Image.file(_imageFile!, fit: BoxFit.cover),
               )
             : (widget.banner?.imageUrl.isNotEmpty == true
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(widget.banner!.imageUrl,
-                        fit: BoxFit.cover),
-                  )
-                : const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.add_a_photo, color: Colors.grey),
-                      SizedBox(height: 8),
-                      Text('Select Image'),
-                    ],
-                  )),
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        widget.banner!.imageUrl,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_a_photo, color: Colors.grey),
+                        SizedBox(height: 8),
+                        Text('Select Image'),
+                      ],
+                    )),
       ),
     );
   }

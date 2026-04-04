@@ -1,45 +1,108 @@
-// dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/models/subscription.dart'; // ADDED for SubscriptionStatus
+import '../../../core/models/subscription.dart';
 import '../../../core/providers/dashboard_provider.dart';
-import '../../../core/providers/subscription_provider.dart'; // ADDED for SubscriptionFilter
-import '../../subscriptions/screens/subscriptions_screen.dart'; // ADDED for navigation
+import '../../../core/providers/subscription_provider.dart';
+import '../../../core/services/firebase_service.dart'; // Added for settlement
+import '../../subscriptions/screens/subscriptions_screen.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  bool _isSettling = false;
+
+  Future<void> _runSettlement() async {
+    setState(() => _isSettling = true);
+    try {
+      await FirebaseService.runDailySettlement();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Daily settlement complete! Stale orders cancelled & refunded.',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Refresh the dashboard data to reflect changes
+        ref.invalidate(dashboardDataProvider);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to run settlement: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSettling = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final dashboardData = ref.watch(dashboardDataProvider);
 
     return Scaffold(
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: dashboardData.when(
-          data: (data) => _buildDashboard(context, data), // Pass context for navigation
+          data: (data) => _buildDashboard(context, data),
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Center(
-            child: Text('Error: $error'),
-          ),
+          error: (error, stack) => Center(child: Text('Error: $error')),
         ),
       ),
     );
   }
 
   Widget _buildDashboard(BuildContext context, Map<String, dynamic> data) {
-    // The forecast is now a map of product names to quantities.
     final forecast = data['tomorrowForecast'] as Map<String, dynamic>;
 
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Dashboard - ${DateFormat('MMM dd, yyyy').format(DateTime.now())}',
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          // --- HEADER & QUICK ACTIONS ---
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Dashboard - ${DateFormat('MMM dd, yyyy').format(DateTime.now())}',
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: _isSettling ? null : _runSettlement,
+                icon: _isSettling
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.autorenew),
+                label: const Text('Settle Stale Orders'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           const Text(
@@ -58,17 +121,18 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(width: 16),
-              // UPDATED: Made this card clickable
               Expanded(
                 child: InkWell(
                   onTap: () {
-                    Navigator.of(context).push(MaterialPageRoute(
-                      builder: (context) => SubscriptionsScreen(
-                        // Pre-filter the screen to show only active subscriptions
-                        initialFilter:
-                            SubscriptionFilter(status: SubscriptionStatus.active),
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => SubscriptionsScreen(
+                          initialFilter: SubscriptionFilter(
+                            status: SubscriptionStatus.active,
+                          ),
+                        ),
                       ),
-                    ));
+                    );
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: _buildStatCard(
@@ -95,7 +159,6 @@ class DashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
 
-          // UPDATED: Dynamically generate forecast cards
           if (forecast.isEmpty)
             const Center(
               child: Padding(
@@ -124,7 +187,11 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -151,10 +218,7 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -163,7 +227,11 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildForecastCard(
-      String title, String value, IconData icon, Color backgroundColor) {
+    String title,
+    String value,
+    IconData icon,
+    Color backgroundColor,
+  ) {
     return Card(
       elevation: 0,
       color: backgroundColor,
@@ -176,19 +244,13 @@ class DashboardScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),
             Text(
               value,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
         ),
