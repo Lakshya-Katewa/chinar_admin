@@ -1,21 +1,19 @@
 import 'dart:io';
-
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../services/firebase_service.dart';
 import '../models/banner.dart' as model;
 
-// Provider to get the stream of banners from Firestore
 final bannersStreamProvider = StreamProvider<List<model.Banner>>((ref) {
   return FirebaseService.getBanners();
 });
 
-// StateNotifier for managing banner create, update, and delete actions
-class BannerNotifier extends StateNotifier<AsyncValue<void>> {
-  BannerNotifier() : super(const AsyncValue.data(null));
+class BannerNotifier extends AsyncNotifier<void> {
+  @override
+  FutureOr<void> build() {}
 
-  // Method to add a new banner
   Future<void> addBanner({
     required String title,
     required String subtitle,
@@ -24,7 +22,7 @@ class BannerNotifier extends StateNotifier<AsyncValue<void>> {
     required bool isActive,
     required File imageFile,
   }) async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
     try {
       final bannerId = const Uuid().v4();
       final imageUrl = await FirebaseService.uploadBannerImage(
@@ -44,13 +42,13 @@ class BannerNotifier extends StateNotifier<AsyncValue<void>> {
       );
 
       await FirebaseService.addBanner(newBanner);
-      state = const AsyncValue.data(null);
+      state = const AsyncData(null);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      state = AsyncError(e, st);
+      rethrow; // <-- THIS TELLS THE UI THAT IT FAILED
     }
   }
 
-  // Method to update an existing banner
   Future<void> updateBanner({
     required String bannerId,
     required String title,
@@ -58,10 +56,10 @@ class BannerNotifier extends StateNotifier<AsyncValue<void>> {
     required String actionType,
     required String target,
     required bool isActive,
-    File? imageFile, // Image is optional on update
+    File? imageFile,
     required String existingImageUrl,
   }) async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
     try {
       String imageUrl = existingImageUrl;
       if (imageFile != null) {
@@ -79,33 +77,29 @@ class BannerNotifier extends StateNotifier<AsyncValue<void>> {
         target: target,
         isActive: isActive,
         imageUrl: imageUrl,
-        // The 'createdAt' field is intentionally omitted from the update object
-        // to prevent overwriting it in Firestore. We create a temporary object for the
-        // update method, which only cares about the fields being changed.
-        createdAt: Timestamp.now(), 
+        createdAt: Timestamp.now(),
       );
 
       await FirebaseService.updateBanner(updatedBanner);
-      state = const AsyncValue.data(null);
+      state = const AsyncData(null);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      state = AsyncError(e, st);
+      rethrow; // <-- THIS TELLS THE UI THAT IT FAILED
     }
   }
 
-  // Method to delete a banner
   Future<void> deleteBanner(String bannerId) async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
     try {
       await FirebaseService.deleteBanner(bannerId);
-      state = const AsyncValue.data(null);
+      state = const AsyncData(null);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      state = AsyncError(e, st);
+      rethrow;
     }
   }
 }
 
-// Provider for the BannerNotifier
-final bannerNotifierProvider =
-    StateNotifierProvider<BannerNotifier, AsyncValue<void>>((ref) {
+final bannerNotifierProvider = AsyncNotifierProvider<BannerNotifier, void>(() {
   return BannerNotifier();
 });

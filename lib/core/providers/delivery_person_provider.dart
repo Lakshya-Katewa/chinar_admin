@@ -1,3 +1,4 @@
+import 'dart:async'; // Added for FutureOr
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/delivery_person.dart';
 import '../models/order.dart';
@@ -8,16 +9,16 @@ final deliveryPersonsProvider = StreamProvider<List<DeliveryPerson>>((ref) {
   return FirebaseService.getDeliveryPersons();
 });
 
-// New provider to calculate earnings for a specific delivery person
-final earningsProvider =
-    StreamProvider.family<double, DeliveryPerson>((ref, person) {
-  // Get the stream of delivered orders for the person since their last payment
+// Provider to calculate earnings for a specific delivery person
+final earningsProvider = StreamProvider.family<double, DeliveryPerson>((
+  ref,
+  person,
+) {
   final ordersStream = FirebaseService.getDeliveredOrdersForPersonSince(
     personId: person.id,
     lastPaymentDate: person.lastPaymentDate,
   );
 
-  // When the stream emits new orders, calculate the total earnings
   return ordersStream.map((orders) {
     if (orders.isEmpty) {
       return 0.0;
@@ -26,34 +27,36 @@ final earningsProvider =
   });
 });
 
-// Notifier for delivery person operations
-class DeliveryPersonNotifier extends StateNotifier<AsyncValue<void>> {
-  DeliveryPersonNotifier() : super(const AsyncValue.data(null));
+// Upgraded to AsyncNotifier (Modern Riverpod 2.x+)
+class DeliveryPersonNotifier extends AsyncNotifier<void> {
+  @override
+  FutureOr<void> build() {} // Required initialization
 
   Future<void> addDeliveryPerson(DeliveryPerson person) async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
     try {
       await FirebaseService.addDeliveryPerson(person);
-      state = const AsyncValue.data(null);
+      state = const AsyncData(null);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
       rethrow;
     }
   }
 
   Future<void> updateDeliveryPerson(DeliveryPerson person) async {
-    state = const AsyncValue.loading();
+    state = const AsyncLoading();
     try {
       await FirebaseService.updateDeliveryPerson(person);
-      state = const AsyncValue.data(null);
+      state = const AsyncData(null);
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      state = AsyncError(e, stack);
       rethrow;
     }
   }
 }
 
+// Upgraded to AsyncNotifierProvider
 final deliveryPersonNotifierProvider =
-    StateNotifierProvider<DeliveryPersonNotifier, AsyncValue<void>>((ref) {
-  return DeliveryPersonNotifier();
-});
+    AsyncNotifierProvider<DeliveryPersonNotifier, void>(() {
+      return DeliveryPersonNotifier();
+    });

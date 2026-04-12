@@ -1,4 +1,3 @@
-// subscription_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -23,12 +22,13 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
   void initState() {
     super.initState();
     _currentFilter =
-        widget.initialFilter ?? SubscriptionFilter(status: SubscriptionStatus.active);
+        widget.initialFilter ??
+        SubscriptionFilter(status: SubscriptionStatus.active);
   }
 
   int _calculateTotalDeliveries(Subscription subscription) {
     if (subscription.endDate == null) {
-      return 0; // Can't calculate for open-ended subscriptions
+      return 0;
     }
 
     final duration =
@@ -45,12 +45,10 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
     }
   }
 
-  // REFINED: This logic now serves as the single source of truth for determining status in the UI.
   SubscriptionStatus _getActualStatus(Subscription subscription) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    // Rule 1: If the end date has passed, the subscription is expired, regardless of its stored status.
     if (subscription.endDate != null) {
       final endDate = DateTime(
         subscription.endDate!.year,
@@ -62,14 +60,11 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
       }
     }
 
-    // Rule 2: If not expired by date, the status stored in Firestore is authoritative.
-    // For example, if it was manually cancelled, it should remain cancelled.
     return subscription.status;
   }
 
   @override
   Widget build(BuildContext context) {
-    // CHANGED: Watch the provider that fetches ALL subscriptions.
     final subscriptionsAsync = ref.watch(allSubscriptionsProvider);
 
     return Scaffold(
@@ -81,13 +76,14 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Subscriptions',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                const Expanded(
+                  child: Text(
+                    'Subscriptions',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 ElevatedButton.icon(
                   onPressed: () => _showAddSubscriptionDialog(context),
                   icon: const Icon(Icons.add),
@@ -100,24 +96,25 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
             const SizedBox(height: 16),
             Expanded(
               child: subscriptionsAsync.when(
-                // CHANGED: Apply client-side filtering here.
                 data: (allSubscriptions) {
-                  // Filter the fetched list based on the true, calculated status.
-                  final filteredSubscriptions = allSubscriptions.where((sub) {
-                    final actualStatus = _getActualStatus(sub);
-                    return actualStatus == _currentFilter.status;
-                  }).toList();
+                  final filteredSubscriptions =
+                      allSubscriptions.where((sub) {
+                        final actualStatus = _getActualStatus(sub);
+                        return actualStatus == _currentFilter.status;
+                      }).toList();
 
-                  // Sort for a consistent order.
-                  filteredSubscriptions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-                  
+                  filteredSubscriptions.sort(
+                    (a, b) => b.createdAt.compareTo(a.createdAt),
+                  );
+
                   return _buildSubscriptionsList(
-                      context, ref, filteredSubscriptions);
+                    context,
+                    ref,
+                    filteredSubscriptions,
+                  );
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(
-                  child: Text('Error: $error'),
-                ),
+                error: (error, stack) => Center(child: Text('Error: $error')),
               ),
             ),
           ],
@@ -131,29 +128,34 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
       height: 40,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        children: SubscriptionStatus.values.map((status) {
-          final isSelected = _currentFilter.status == status;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: FilterChip(
-              label: Text(
-                  status.name[0].toUpperCase() + status.name.substring(1)),
-              selectedColor: _getStatusColor(status).withOpacity(0.2),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  _currentFilter = SubscriptionFilter(status: status);
-                });
-              },
-            ),
-          );
-        }).toList(),
+        children:
+            SubscriptionStatus.values.map((status) {
+              final isSelected = _currentFilter.status == status;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: FilterChip(
+                  label: Text(
+                    status.name[0].toUpperCase() + status.name.substring(1),
+                  ),
+                  selectedColor: _getStatusColor(status).withOpacity(0.2),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      _currentFilter = SubscriptionFilter(status: status);
+                    });
+                  },
+                ),
+              );
+            }).toList(),
       ),
     );
   }
 
   Widget _buildSubscriptionsList(
-      BuildContext context, WidgetRef ref, List<Subscription> subscriptions) {
+    BuildContext context,
+    WidgetRef ref,
+    List<Subscription> subscriptions,
+  ) {
     if (subscriptions.isEmpty) {
       return const Center(
         child: Text('No subscriptions found with the selected filter.'),
@@ -185,16 +187,15 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  subscription.productName,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                Text(subscription.productName, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
                 Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: _getStatusColor(actualStatus).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -209,11 +210,15 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      '₹${subscription.pricePerUnit} × ${subscription.quantity}',
-                      style: TextStyle(
-                        color: Colors.grey.shade600,
-                        fontSize: 12,
+                    // FIX: Wrapped text in Expanded to prevent overflow
+                    Expanded(
+                      child: Text(
+                        '₹${subscription.pricePerUnit} × ${subscription.quantity}',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 12,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -233,21 +238,22 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
                     '${subscription.deliveredCount} of $totalDeliveries deliveries completed',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                   ),
-                ]
+                ],
               ],
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  onPressed: () =>
-                      _showEditSubscriptionDialog(context, subscription),
+                  onPressed:
+                      () => _showEditSubscriptionDialog(context, subscription),
                   icon: const Icon(Icons.edit, size: 20),
                   tooltip: 'Edit',
                 ),
                 IconButton(
-                  onPressed: () =>
-                      _showSubscriptionDetails(context, ref, subscription),
+                  onPressed:
+                      () =>
+                          _showSubscriptionDetails(context, ref, subscription),
                   icon: const Icon(Icons.info_outline, size: 20),
                   tooltip: 'Details',
                 ),
@@ -285,105 +291,146 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
   }
 
   void _showEditSubscriptionDialog(
-      BuildContext context, Subscription subscription) {
+    BuildContext context,
+    Subscription subscription,
+  ) {
     showDialog(
       context: context,
-      builder: (context) => AddEditSubscriptionDialog(subscription: subscription),
+      builder:
+          (context) => AddEditSubscriptionDialog(subscription: subscription),
     );
   }
 
   void _showSubscriptionDetails(
-      BuildContext context, WidgetRef ref, Subscription subscription) {
+    BuildContext context,
+    WidgetRef ref,
+    Subscription subscription,
+  ) {
     final actualStatus = _getActualStatus(subscription);
 
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 400, maxHeight: 500),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    topRight: Radius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.subscriptions,
-                        color: Theme.of(context).primaryColor),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Subscription Details',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+      builder:
+          (context) => Dialog(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 400, maxHeight: 500),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
                       ),
                     ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildDetailRow('Customer', subscription.customerName),
-                      _buildDetailRow('Product', subscription.productName),
-                      _buildDetailRow('Type', subscription.type.name),
-                      _buildDetailRow('Quantity', subscription.quantity.toString()),
-                      _buildDetailRow('Price', '₹${subscription.pricePerUnit}'),
-                      _buildDetailRow('Start Date',
-                          DateFormat('MMM dd, yyyy').format(subscription.startDate)),
-                      if (subscription.endDate != null)
-                        _buildDetailRow('End Date',
-                            DateFormat('MMM dd, yyyy').format(subscription.endDate!)),
-                      _buildDetailRow('Status', _getStatusText(actualStatus)),
-                      const SizedBox(height: 16),
-                      if (actualStatus == SubscriptionStatus.active) ...[
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () => _updateSubscriptionStatus(context, ref,
-                                subscription, SubscriptionStatus.paused),
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange),
-                            icon: const Icon(Icons.pause),
-                            label: const Text('Pause'),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.subscriptions,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Subscription Details',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
                         ),
-                      ] else if (actualStatus == SubscriptionStatus.paused) ...[
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () => _updateSubscriptionStatus(context, ref,
-                                subscription, SubscriptionStatus.active),
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green),
-                            icon: const Icon(Icons.play_arrow),
-                            label: const Text('Resume'),
-                          ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close),
                         ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildDetailRow(
+                            'Customer',
+                            subscription.customerName,
+                          ),
+                          _buildDetailRow('Product', subscription.productName),
+                          _buildDetailRow('Type', subscription.type.name),
+                          _buildDetailRow(
+                            'Quantity',
+                            subscription.quantity.toString(),
+                          ),
+                          _buildDetailRow(
+                            'Price',
+                            '₹${subscription.pricePerUnit}',
+                          ),
+                          _buildDetailRow(
+                            'Start Date',
+                            DateFormat(
+                              'MMM dd, yyyy',
+                            ).format(subscription.startDate),
+                          ),
+                          if (subscription.endDate != null)
+                            _buildDetailRow(
+                              'End Date',
+                              DateFormat(
+                                'MMM dd, yyyy',
+                              ).format(subscription.endDate!),
+                            ),
+                          _buildDetailRow(
+                            'Status',
+                            _getStatusText(actualStatus),
+                          ),
+                          const SizedBox(height: 16),
+                          if (actualStatus == SubscriptionStatus.active) ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed:
+                                    () => _updateSubscriptionStatus(
+                                      context,
+                                      ref,
+                                      subscription,
+                                      SubscriptionStatus.paused,
+                                    ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                ),
+                                icon: const Icon(Icons.pause),
+                                label: const Text('Pause'),
+                              ),
+                            ),
+                          ] else if (actualStatus ==
+                              SubscriptionStatus.paused) ...[
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed:
+                                    () => _updateSubscriptionStatus(
+                                      context,
+                                      ref,
+                                      subscription,
+                                      SubscriptionStatus.active,
+                                    ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                ),
+                                icon: const Icon(Icons.play_arrow),
+                                label: const Text('Resume'),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
     );
   }
 
@@ -404,24 +451,19 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
               ),
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 14),
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
         ],
       ),
     );
   }
 
   Future<void> _updateSubscriptionStatus(
-      BuildContext context,
-      WidgetRef ref,
-      Subscription subscription,
-      SubscriptionStatus newStatus) async {
+    BuildContext context,
+    WidgetRef ref,
+    Subscription subscription,
+    SubscriptionStatus newStatus,
+  ) async {
     try {
-      // Create a new subscription object, ensuring all fields are carried over.
       final updatedSubscription = Subscription(
         id: subscription.id,
         customerId: subscription.customerId,
@@ -433,7 +475,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
         type: subscription.type,
         startDate: subscription.startDate,
         endDate: subscription.endDate,
-        isActive: newStatus == SubscriptionStatus.active, // Also update isActive
+        isActive: newStatus == SubscriptionStatus.active,
         quantity: subscription.quantity,
         pricePerUnit: subscription.pricePerUnit,
         totalAmount: subscription.totalAmount,
@@ -442,7 +484,7 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
         createdAt: subscription.createdAt,
         deliveredCount: subscription.deliveredCount,
         imageUrl: subscription.imageUrl,
-        status: newStatus, // Apply the new status
+        status: newStatus,
       );
 
       await ref
@@ -450,11 +492,12 @@ class _SubscriptionsScreenState extends ConsumerState<SubscriptionsScreen> {
           .updateSubscription(updatedSubscription);
 
       if (context.mounted) {
-        Navigator.pop(context); // Close the details dialog
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                'Subscription ${_getStatusText(newStatus).toLowerCase()} successfully'),
+              'Subscription ${_getStatusText(newStatus).toLowerCase()} successfully',
+            ),
             backgroundColor: _getStatusColor(newStatus),
           ),
         );

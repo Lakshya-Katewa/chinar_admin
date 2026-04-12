@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/models/subscription.dart';
 import '../../../core/providers/dashboard_provider.dart';
 import '../../../core/providers/subscription_provider.dart';
-import '../../../core/services/firebase_service.dart'; // Added for settlement
+import '../../../core/services/firebase_service.dart';
 import '../../subscriptions/screens/subscriptions_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -31,7 +31,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        // Refresh the dashboard data to reflect changes
         ref.invalidate(dashboardDataProvider);
       }
     } catch (e) {
@@ -73,29 +72,34 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- HEADER & QUICK ACTIONS ---
+          // --- FIX: Wrapped the title in Expanded to prevent overflow ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Dashboard - ${DateFormat('MMM dd, yyyy').format(DateTime.now())}',
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
+              Expanded(
+                child: Text(
+                  'Dashboard - ${DateFormat('MMM dd, yyyy').format(DateTime.now())}',
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: _isSettling ? null : _runSettlement,
-                icon: _isSettling
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Icon(Icons.autorenew),
+                icon:
+                    _isSettling
+                        ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                        : const Icon(Icons.autorenew),
                 label: const Text('Settle Stale Orders'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade600,
@@ -126,11 +130,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => SubscriptionsScreen(
-                          initialFilter: SubscriptionFilter(
-                            status: SubscriptionStatus.active,
-                          ),
-                        ),
+                        builder:
+                            (context) => SubscriptionsScreen(
+                              initialFilter: SubscriptionFilter(
+                                status: SubscriptionStatus.active,
+                              ),
+                            ),
                       ),
                     );
                   },
@@ -170,16 +175,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             Wrap(
               spacing: 16,
               runSpacing: 16,
-              children: forecast.entries.map((entry) {
-                final productName = entry.key;
-                final quantity = entry.value as double;
-                return _buildForecastCard(
-                  productName,
-                  '${quantity.toStringAsFixed(1)} units',
-                  Icons.inventory_2_outlined,
-                  Colors.blue.shade50,
-                );
-              }).toList(),
+              children:
+                  forecast.entries.map((entry) {
+                    final productName = entry.key;
+                    final quantity = entry.value as double;
+                    return _buildForecastCard(
+                      productName,
+                      '${quantity.toStringAsFixed(1)} units',
+                      Icons.inventory_2_outlined,
+                      Colors.blue.shade50,
+                    );
+                  }).toList(),
             ),
         ],
       ),

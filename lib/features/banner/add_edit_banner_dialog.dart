@@ -64,30 +64,42 @@ class _AddEditBannerDialogState extends ConsumerState<AddEditBannerDialog> {
       final notifier = ref.read(bannerNotifierProvider.notifier);
       final isUpdating = widget.banner != null;
 
-      if (isUpdating) {
-        await notifier.updateBanner(
-          bannerId: widget.banner!.id!,
-          title: _titleController.text.trim(), // Trim empty spaces
-          subtitle: _subtitleController.text.trim(),
-          actionType: _actionType,
-          target: _targetController.text.trim(),
-          isActive: _isActive,
-          imageFile: _imageFile,
-          existingImageUrl: widget.banner!.imageUrl,
-        );
-      } else {
-        await notifier.addBanner(
-          title: _titleController.text.trim(),
-          subtitle: _subtitleController.text.trim(),
-          actionType: _actionType,
-          target: _targetController.text.trim(),
-          isActive: _isActive,
-          imageFile: _imageFile!,
-        );
-      }
+      try {
+        if (isUpdating) {
+          await notifier.updateBanner(
+            bannerId: widget.banner!.id!,
+            title: _titleController.text.trim(),
+            subtitle: _subtitleController.text.trim(),
+            actionType: _actionType,
+            target: _targetController.text.trim(),
+            isActive: _isActive,
+            imageFile: _imageFile,
+            existingImageUrl: widget.banner!.imageUrl,
+          );
+        } else {
+          await notifier.addBanner(
+            title: _titleController.text.trim(),
+            subtitle: _subtitleController.text.trim(),
+            actionType: _actionType,
+            target: _targetController.text.trim(),
+            isActive: _isActive,
+            imageFile: _imageFile!,
+          );
+        }
 
-      if (mounted) {
-        Navigator.of(context).pop();
+        if (mounted) {
+          Navigator.of(context).pop(); // Only close if it succeeds
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to save banner: $e'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       }
     }
   }
@@ -113,7 +125,6 @@ class _AddEditBannerDialogState extends ConsumerState<AddEditBannerDialog> {
                   labelText: 'Title (Optional)',
                   hintText: 'Leave blank if not needed',
                 ),
-                // REMOVED VALIDATOR
               ),
               const SizedBox(height: 8),
               TextFormField(
@@ -122,15 +133,15 @@ class _AddEditBannerDialogState extends ConsumerState<AddEditBannerDialog> {
                   labelText: 'Subtitle (Optional)',
                   hintText: 'Leave blank if not needed',
                 ),
-                // REMOVED VALIDATOR
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 value: _actionType,
                 decoration: const InputDecoration(labelText: 'Action Type'),
-                items: ['none', 'category', 'product']
-                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                    .toList(),
+                items:
+                    ['none', 'category', 'product']
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                        .toList(),
                 onChanged: (v) => setState(() => _actionType = v!),
               ),
               const SizedBox(height: 8),
@@ -157,13 +168,14 @@ class _AddEditBannerDialogState extends ConsumerState<AddEditBannerDialog> {
         ),
         ElevatedButton(
           onPressed: isLoading ? null : _submit,
-          child: isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
+          child:
+              isLoading
+                  ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Text('Save'),
         ),
       ],
     );
@@ -180,20 +192,21 @@ class _AddEditBannerDialogState extends ConsumerState<AddEditBannerDialog> {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade400),
         ),
-        child: _imageFile != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(_imageFile!, fit: BoxFit.cover),
-              )
-            : (widget.banner?.imageUrl.isNotEmpty == true
-                  ? ClipRRect(
+        child:
+            _imageFile != null
+                ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(_imageFile!, fit: BoxFit.cover),
+                )
+                : (widget.banner?.imageUrl.isNotEmpty == true
+                    ? ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.network(
                         widget.banner!.imageUrl,
                         fit: BoxFit.cover,
                       ),
                     )
-                  : const Column(
+                    : const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.add_a_photo, color: Colors.grey),

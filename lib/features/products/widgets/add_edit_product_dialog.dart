@@ -1,5 +1,3 @@
-// add_edit_dialog_product.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -7,7 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../../core/models/product.dart';
 import '../../../core/providers/product_provider.dart';
-import '../../../core/services/firebase_service.dart'; // Import FirebaseService
+import '../../../core/services/firebase_service.dart';
 
 class AddEditProductDialog extends ConsumerStatefulWidget {
   final Product? product;
@@ -15,7 +13,8 @@ class AddEditProductDialog extends ConsumerStatefulWidget {
   const AddEditProductDialog({super.key, this.product});
 
   @override
-  ConsumerState<AddEditProductDialog> createState() => _AddEditProductDialogState();
+  ConsumerState<AddEditProductDialog> createState() =>
+      _AddEditProductDialogState();
 }
 
 class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
@@ -23,14 +22,13 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
   final _nameController = TextEditingController();
   final _priceController = TextEditingController();
   final _descriptionController = TextEditingController();
-  // We no longer need the imageUrlController, as the URL is managed dynamically
-  
+
   ProductUnit _selectedUnit = ProductUnit.liter;
   ProductType _selectedType = ProductType.oneTimeOnly;
   ProductCategory _selectedCategory = ProductCategory.milk;
   bool _isLoading = false;
   File? _selectedImage;
-  String? _existingImageUrl; // To hold the initial image URL
+  String? _existingImageUrl;
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -40,7 +38,7 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
       _nameController.text = widget.product!.name;
       _priceController.text = widget.product!.price.toString();
       _descriptionController.text = widget.product!.description;
-      _existingImageUrl = widget.product!.imageUrl; // Store the existing URL
+      _existingImageUrl = widget.product!.imageUrl;
       _selectedUnit = widget.product!.unit;
       _selectedType = widget.product!.type;
       _selectedCategory = widget.product!.category;
@@ -63,7 +61,7 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
         maxHeight: 800,
         imageQuality: 80,
       );
-      
+
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
@@ -71,15 +69,14 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking image: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error picking image: $e')));
       }
     }
   }
 
   Widget _buildImagePreview() {
-    // If a new image is selected, show it from the file
     if (_selectedImage != null) {
       return Container(
         height: 100,
@@ -103,9 +100,10 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
               top: 4,
               right: 4,
               child: GestureDetector(
-                onTap: () => setState(() {
-                  _selectedImage = null;
-                }),
+                onTap:
+                    () => setState(() {
+                      _selectedImage = null;
+                    }),
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: const BoxDecoration(
@@ -119,9 +117,8 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
           ],
         ),
       );
-    // If there's an existing URL and no new image, show it from the network
     } else if (_existingImageUrl != null) {
-       return Container(
+      return Container(
         height: 100,
         width: double.infinity,
         decoration: BoxDecoration(
@@ -139,19 +136,25 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
               return Container(
                 height: 100,
                 color: Colors.grey.shade200,
-                child: const Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                child: const Icon(
+                  Icons.broken_image,
+                  color: Colors.grey,
+                  size: 40,
+                ),
               );
             },
           ),
         ),
       );
-    // Otherwise, show the placeholder
     } else {
-       return Container(
+      return Container(
         height: 100,
         width: double.infinity,
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+          border: Border.all(
+            color: Colors.grey.shade300,
+            style: BorderStyle.solid,
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -159,14 +162,16 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
           children: [
             Icon(Icons.image, color: Colors.grey.shade400, size: 32),
             const SizedBox(height: 4),
-            Text('No image', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+            Text(
+              'No image',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+            ),
           ],
         ),
       );
     }
   }
 
-  // --- MODIFIED LOGIC ---
   Future<void> _saveProduct() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -174,13 +179,11 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
 
     try {
       final now = DateTime.now();
-      String? uploadedImageUrl = _existingImageUrl; // Start with the old URL
+      String? uploadedImageUrl = _existingImageUrl;
 
-      // Determine if this is a new product or an update
       final bool isUpdating = widget.product != null;
       final String productId = widget.product?.id ?? const Uuid().v4();
 
-      // If a new image was selected, upload it
       if (_selectedImage != null) {
         uploadedImageUrl = await FirebaseService.uploadProductImage(
           file: _selectedImage!,
@@ -205,10 +208,6 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
       if (isUpdating) {
         await ref.read(productNotifierProvider).updateProduct(productData);
       } else {
-        // Since addProduct now returns a string, we don't need to await it here
-        // if we have the ID already. But if the image was uploaded with a temp
-        // ID, we might need to update the product with the real ID later.
-        // For simplicity, this flow works well.
         await ref.read(productNotifierProvider).addProduct(productData);
       }
 
@@ -216,7 +215,11 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(isUpdating ? 'Product updated successfully' : 'Product added successfully'),
+            content: Text(
+              isUpdating
+                  ? 'Product updated successfully'
+                  : 'Product added successfully',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -224,7 +227,10 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving product: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error saving product: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -232,15 +238,11 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    // ... (Your build method remains the same)
-    // Just make sure you are not using _imageUrlController in it anymore.
-    // The rest of the file (from build method down) is correct.
     return Dialog(
       child: Container(
-        width: 500,
+        width: double.infinity,
         constraints: const BoxConstraints(maxHeight: 600),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -256,17 +258,21 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
               ),
               child: Row(
                 children: [
-                  Icon(widget.product == null ? Icons.add : Icons.edit, 
-                       color: Theme.of(context).primaryColor),
+                  Icon(
+                    widget.product == null ? Icons.add : Icons.edit,
+                    color: Theme.of(context).primaryColor,
+                  ),
                   const SizedBox(width: 8),
-                  Text(
-                    widget.product == null ? 'Add Product' : 'Edit Product',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
+                  Expanded(
+                    child: Text(
+                      widget.product == null ? 'Add Product' : 'Edit Product',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.close),
@@ -285,19 +291,16 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
                       children: [
                         _buildImagePreview(),
                         const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _pickImage,
-                                icon: const Icon(Icons.upload, size: 18),
-                                label: const Text('Upload Image'),
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
-                                ),
-                              ),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _pickImage,
+                            icon: const Icon(Icons.upload, size: 18),
+                            label: const Text('Upload Image'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
                             ),
-                          ],
+                          ),
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -307,7 +310,11 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.shopping_bag),
                           ),
-                          validator: (value) => value?.isEmpty == true ? 'Please enter product name' : null,
+                          validator:
+                              (value) =>
+                                  value?.isEmpty == true
+                                      ? 'Please enter product name'
+                                      : null,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -319,8 +326,10 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
                           ),
                           keyboardType: TextInputType.number,
                           validator: (value) {
-                            if (value?.isEmpty == true) return 'Please enter price';
-                            if (double.tryParse(value!) == null) return 'Please enter a valid price';
+                            if (value?.isEmpty == true)
+                              return 'Please enter price';
+                            if (double.tryParse(value!) == null)
+                              return 'Please enter a valid price';
                             return null;
                           },
                         ),
@@ -333,7 +342,11 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
                             prefixIcon: Icon(Icons.description),
                           ),
                           maxLines: 2,
-                          validator: (value) => value?.isEmpty == true ? 'Please enter description' : null,
+                          validator:
+                              (value) =>
+                                  value?.isEmpty == true
+                                      ? 'Please enter description'
+                                      : null,
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<ProductCategory>(
@@ -343,15 +356,21 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.category),
                           ),
-                          items: ProductCategory.values.map((category) {
-                            String text = switch (category) {
-                              ProductCategory.milk => 'Milk',
-                              ProductCategory.paneer => 'Paneer',
-                              ProductCategory.cheese => 'Cheese',
-                            };
-                            return DropdownMenuItem(value: category, child: Text(text));
-                          }).toList(),
-                          onChanged: (value) => setState(() => _selectedCategory = value!),
+                          items:
+                              ProductCategory.values.map((category) {
+                                String text = switch (category) {
+                                  ProductCategory.milk => 'Milk',
+                                  ProductCategory.paneer => 'Paneer',
+                                  ProductCategory.cheese => 'Cheese',
+                                };
+                                return DropdownMenuItem(
+                                  value: category,
+                                  child: Text(text),
+                                );
+                              }).toList(),
+                          onChanged:
+                              (value) =>
+                                  setState(() => _selectedCategory = value!),
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<ProductUnit>(
@@ -361,15 +380,20 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.straighten),
                           ),
-                          items: ProductUnit.values.map((unit) {
-                            String text = switch (unit) {
-                              ProductUnit.liter => 'Liter',
-                              ProductUnit.kg => 'Kg',
-                              ProductUnit.piece => 'Piece',
-                            };
-                            return DropdownMenuItem(value: unit, child: Text(text));
-                          }).toList(),
-                          onChanged: (value) => setState(() => _selectedUnit = value!),
+                          items:
+                              ProductUnit.values.map((unit) {
+                                String text = switch (unit) {
+                                  ProductUnit.liter => 'Liter',
+                                  ProductUnit.kg => 'Kg',
+                                  ProductUnit.piece => 'Piece',
+                                };
+                                return DropdownMenuItem(
+                                  value: unit,
+                                  child: Text(text),
+                                );
+                              }).toList(),
+                          onChanged:
+                              (value) => setState(() => _selectedUnit = value!),
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<ProductType>(
@@ -379,15 +403,20 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.type_specimen),
                           ),
-                          items: ProductType.values.map((type) {
-                            String text = switch (type) {
-                              ProductType.oneTimeOnly => 'One Time',
-                              ProductType.general => 'General',
-                              ProductType.subscription => 'Subscription',
-                            };
-                            return DropdownMenuItem(value: type, child: Text(text));
-                          }).toList(),
-                          onChanged: (value) => setState(() => _selectedType = value!),
+                          items:
+                              ProductType.values.map((type) {
+                                String text = switch (type) {
+                                  ProductType.oneTimeOnly => 'One Time',
+                                  ProductType.general => 'General',
+                                  ProductType.subscription => 'Subscription',
+                                };
+                                return DropdownMenuItem(
+                                  value: type,
+                                  child: Text(text),
+                                );
+                              }).toList(),
+                          onChanged:
+                              (value) => setState(() => _selectedType = value!),
                         ),
                       ],
                     ),
@@ -404,19 +433,35 @@ class _AddEditProductDialogState extends ConsumerState<AddEditProductDialog> {
                   bottomRight: Radius.circular(12),
                 ),
               ),
+              // FIX: Removed Expanded from Cancel button, kept it on the primary button
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
                     onPressed: _isLoading ? null : () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+                    child: const Text('Cancel', maxLines: 1),
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _saveProduct,
-                    child: _isLoading
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : Text(widget.product == null ? 'Add Product' : 'Update Product'),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _saveProduct,
+                      child:
+                          _isLoading
+                              ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : Text(
+                                widget.product == null
+                                    ? 'Add Product'
+                                    : 'Update Product',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                    ),
                   ),
                 ],
               ),

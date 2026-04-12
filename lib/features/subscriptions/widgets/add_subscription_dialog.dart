@@ -10,16 +10,18 @@ class AddEditSubscriptionDialog extends ConsumerStatefulWidget {
   const AddEditSubscriptionDialog({super.key, this.subscription});
 
   @override
-  ConsumerState<AddEditSubscriptionDialog> createState() => _AddEditSubscriptionDialogState();
+  ConsumerState<AddEditSubscriptionDialog> createState() =>
+      _AddEditSubscriptionDialogState();
 }
 
-class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionDialog> {
+class _AddEditSubscriptionDialogState
+    extends ConsumerState<AddEditSubscriptionDialog> {
   final _formKey = GlobalKey<FormState>();
   final _customerNameController = TextEditingController();
   final _productNameController = TextEditingController();
   final _quantityController = TextEditingController();
   final _priceController = TextEditingController();
-  
+
   SubscriptionType _selectedType = SubscriptionType.monthly;
   SubscriptionStatus _selectedStatus = SubscriptionStatus.active;
   DateTime _startDate = DateTime.now();
@@ -35,7 +37,8 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
       _quantityController.text = widget.subscription!.quantity.toString();
       _priceController.text = widget.subscription!.pricePerUnit.toString();
       _selectedType = widget.subscription!.type;
-      _selectedStatus = widget.subscription!.status ?? SubscriptionStatus.active;
+      _selectedStatus =
+          widget.subscription!.status ?? SubscriptionStatus.active;
       _startDate = widget.subscription!.startDate;
       _endDate = widget.subscription!.endDate;
     }
@@ -74,20 +77,31 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
         pricePerUnit: pricePerUnit,
         totalAmount: quantity * pricePerUnit,
         areaCode: widget.subscription?.areaCode ?? '',
-        address: widget.subscription?.address ?? '', customerId: '', isActive: true, createdAt: DateTime.now()
+        address: widget.subscription?.address ?? '',
+        customerId: '',
+        isActive: true,
+        createdAt: DateTime.now(),
       );
 
       if (widget.subscription == null) {
-        await ref.read(subscriptionNotifierProvider).addSubscription(subscription);
+        await ref
+            .read(subscriptionNotifierProvider)
+            .addSubscription(subscription);
       } else {
-        await ref.read(subscriptionNotifierProvider).updateSubscription(subscription);
+        await ref
+            .read(subscriptionNotifierProvider)
+            .updateSubscription(subscription);
       }
 
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(widget.subscription == null ? 'Subscription added successfully' : 'Subscription updated successfully'),
+            content: Text(
+              widget.subscription == null
+                  ? 'Subscription added successfully'
+                  : 'Subscription updated successfully',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -95,7 +109,10 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving subscription: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error saving subscription: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -107,7 +124,7 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
   Widget build(BuildContext context) {
     return Dialog(
       child: Container(
-        width: 450,
+        width: double.infinity,
         constraints: const BoxConstraints(maxHeight: 550),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -123,17 +140,23 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
               ),
               child: Row(
                 children: [
-                  Icon(widget.subscription == null ? Icons.add : Icons.edit, 
-                       color: Theme.of(context).primaryColor),
+                  Icon(
+                    widget.subscription == null ? Icons.add : Icons.edit,
+                    color: Theme.of(context).primaryColor,
+                  ),
                   const SizedBox(width: 8),
-                  Text(
-                    widget.subscription == null ? 'Add Subscription' : 'Edit Subscription',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
+                  Expanded(
+                    child: Text(
+                      widget.subscription == null
+                          ? 'Add Subscription'
+                          : 'Edit Subscription',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.close),
@@ -156,7 +179,11 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.person),
                           ),
-                          validator: (value) => value?.isEmpty == true ? 'Please enter customer name' : null,
+                          validator:
+                              (value) =>
+                                  value?.isEmpty == true
+                                      ? 'Please enter customer name'
+                                      : null,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -166,7 +193,11 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.shopping_bag),
                           ),
-                          validator: (value) => value?.isEmpty == true ? 'Please enter product name' : null,
+                          validator:
+                              (value) =>
+                                  value?.isEmpty == true
+                                      ? 'Please enter product name'
+                                      : null,
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -181,8 +212,10 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
                                 ),
                                 keyboardType: TextInputType.number,
                                 validator: (value) {
-                                  if (value?.isEmpty == true) return 'Please enter quantity';
-                                  if (double.tryParse(value!) == null) return 'Invalid quantity';
+                                  if (value?.isEmpty == true)
+                                    return 'Please enter quantity';
+                                  if (double.tryParse(value!) == null)
+                                    return 'Invalid quantity';
                                   return null;
                                 },
                               ),
@@ -198,8 +231,10 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
                                 ),
                                 keyboardType: TextInputType.number,
                                 validator: (value) {
-                                  if (value?.isEmpty == true) return 'Please enter price';
-                                  if (double.tryParse(value!) == null) return 'Invalid price';
+                                  if (value?.isEmpty == true)
+                                    return 'Please enter price';
+                                  if (double.tryParse(value!) == null)
+                                    return 'Invalid price';
                                   return null;
                                 },
                               ),
@@ -214,15 +249,21 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
                             border: OutlineInputBorder(),
                             prefixIcon: Icon(Icons.repeat),
                           ),
-                          items: SubscriptionType.values.map((type) {
-                            String text = switch (type) {
-                              SubscriptionType.monthly => 'Monthly',
-                              SubscriptionType.weekly => 'Weekly',
-                              SubscriptionType.alternateDay => 'Alternate Day',
-                            };
-                            return DropdownMenuItem(value: type, child: Text(text));
-                          }).toList(),
-                          onChanged: (value) => setState(() => _selectedType = value!),
+                          items:
+                              SubscriptionType.values.map((type) {
+                                String text = switch (type) {
+                                  SubscriptionType.monthly => 'Monthly',
+                                  SubscriptionType.weekly => 'Weekly',
+                                  SubscriptionType.alternateDay =>
+                                    'Alternate Day',
+                                };
+                                return DropdownMenuItem(
+                                  value: type,
+                                  child: Text(text),
+                                );
+                              }).toList(),
+                          onChanged:
+                              (value) => setState(() => _selectedType = value!),
                         ),
                         if (widget.subscription != null) ...[
                           const SizedBox(height: 16),
@@ -233,16 +274,22 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
                               border: OutlineInputBorder(),
                               prefixIcon: Icon(Icons.info),
                             ),
-                            items: SubscriptionStatus.values.map((status) {
-                              String text = switch (status) {
-                                SubscriptionStatus.active => 'Active',
-                                SubscriptionStatus.paused => 'Paused',
-                                SubscriptionStatus.cancelled => 'Cancelled',
-                                SubscriptionStatus.expired => 'Expired',
-                              };
-                              return DropdownMenuItem(value: status, child: Text(text));
-                            }).toList(),
-                            onChanged: (value) => setState(() => _selectedStatus = value!),
+                            items:
+                                SubscriptionStatus.values.map((status) {
+                                  String text = switch (status) {
+                                    SubscriptionStatus.active => 'Active',
+                                    SubscriptionStatus.paused => 'Paused',
+                                    SubscriptionStatus.cancelled => 'Cancelled',
+                                    SubscriptionStatus.expired => 'Expired',
+                                  };
+                                  return DropdownMenuItem(
+                                    value: status,
+                                    child: Text(text),
+                                  );
+                                }).toList(),
+                            onChanged:
+                                (value) =>
+                                    setState(() => _selectedStatus = value!),
                           ),
                         ],
                         const SizedBox(height: 16),
@@ -261,12 +308,16 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
                                     context: context,
                                     initialDate: _startDate,
                                     firstDate: DateTime(2020),
-                                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                                    lastDate: DateTime.now().add(
+                                      const Duration(days: 365),
+                                    ),
                                   );
-                                  if (date != null) setState(() => _startDate = date);
+                                  if (date != null)
+                                    setState(() => _startDate = date);
                                 },
                                 controller: TextEditingController(
-                                  text: '${_startDate.day}/${_startDate.month}/${_startDate.year}',
+                                  text:
+                                      '${_startDate.day}/${_startDate.month}/${_startDate.year}',
                                 ),
                               ),
                             ),
@@ -282,14 +333,24 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
                                 onTap: () async {
                                   final date = await showDatePicker(
                                     context: context,
-                                    initialDate: _endDate ?? _startDate.add(const Duration(days: 30)),
+                                    initialDate:
+                                        _endDate ??
+                                        _startDate.add(
+                                          const Duration(days: 30),
+                                        ),
                                     firstDate: _startDate,
-                                    lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+                                    lastDate: DateTime.now().add(
+                                      const Duration(days: 365 * 2),
+                                    ),
                                   );
-                                  if (date != null) setState(() => _endDate = date);
+                                  if (date != null)
+                                    setState(() => _endDate = date);
                                 },
                                 controller: TextEditingController(
-                                  text: _endDate != null ? '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}' : '',
+                                  text:
+                                      _endDate != null
+                                          ? '${_endDate!.day}/${_endDate!.month}/${_endDate!.year}'
+                                          : '',
                                 ),
                               ),
                             ),
@@ -310,19 +371,35 @@ class _AddEditSubscriptionDialogState extends ConsumerState<AddEditSubscriptionD
                   bottomRight: Radius.circular(12),
                 ),
               ),
+              // FIX: Removed Expanded from Cancel button, kept it on the primary button
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
                     onPressed: _isLoading ? null : () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+                    child: const Text('Cancel', maxLines: 1),
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _saveSubscription,
-                    child: _isLoading
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : Text(widget.subscription == null ? 'Add Subscription' : 'Update Subscription'),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _saveSubscription,
+                      child:
+                          _isLoading
+                              ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                              : Text(
+                                widget.subscription == null
+                                    ? 'Add Subscription'
+                                    : 'Update Subscription',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                    ),
                   ),
                 ],
               ),

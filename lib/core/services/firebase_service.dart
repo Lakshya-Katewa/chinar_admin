@@ -25,13 +25,14 @@ class FirebaseService {
     final todayStart = DateTime(now.year, now.month, now.day);
 
     try {
-      final staleOrdersSnapshot = await _firestore
-          .collection('orders')
-          .where(
-            'deliveryDate',
-            isLessThan: firestore.Timestamp.fromDate(todayStart),
-          )
-          .get();
+      final staleOrdersSnapshot =
+          await _firestore
+              .collection('orders')
+              .where(
+                'deliveryDate',
+                isLessThan: firestore.Timestamp.fromDate(todayStart),
+              )
+              .get();
 
       if (staleOrdersSnapshot.docs.isEmpty) return;
 
@@ -91,9 +92,10 @@ class FirebaseService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => DeliveryPerson.fromFirestore(doc))
-              .toList(),
+          (snapshot) =>
+              snapshot.docs
+                  .map((doc) => DeliveryPerson.fromFirestore(doc))
+                  .toList(),
         );
   }
 
@@ -174,7 +176,11 @@ class FirebaseService {
   }
 
   static Future<void> addBanner(Banner banner) async {
-    await _firestore.collection('banners').add(banner.toFirestore());
+    // FIX: Using .set() ensures the Firestore ID matches the Image ID
+    await _firestore
+        .collection('banners')
+        .doc(banner.id)
+        .set(banner.toFirestore());
   }
 
   static Future<void> updateBanner(Banner banner) async {
@@ -362,33 +368,36 @@ class FirebaseService {
       final tomorrow = todayStart.add(const Duration(days: 1));
       final tomorrowEnd = tomorrow.add(const Duration(days: 1));
 
-      final todayDeliveries = await _firestore
-          .collection('orders')
-          .where(
-            'deliveryDate',
-            isGreaterThanOrEqualTo: firestore.Timestamp.fromDate(todayStart),
-          )
-          .where(
-            'deliveryDate',
-            isLessThan: firestore.Timestamp.fromDate(todayEnd),
-          )
-          .get();
+      final todayDeliveries =
+          await _firestore
+              .collection('orders')
+              .where(
+                'deliveryDate',
+                isGreaterThanOrEqualTo: firestore.Timestamp.fromDate(
+                  todayStart,
+                ),
+              )
+              .where(
+                'deliveryDate',
+                isLessThan: firestore.Timestamp.fromDate(todayEnd),
+              )
+              .get();
 
-      final tomorrowDeliveries = await _firestore
-          .collection('orders')
-          .where(
-            'deliveryDate',
-            isGreaterThanOrEqualTo: firestore.Timestamp.fromDate(tomorrow),
-          )
-          .where(
-            'deliveryDate',
-            isLessThan: firestore.Timestamp.fromDate(tomorrowEnd),
-          )
-          .get();
+      final tomorrowDeliveries =
+          await _firestore
+              .collection('orders')
+              .where(
+                'deliveryDate',
+                isGreaterThanOrEqualTo: firestore.Timestamp.fromDate(tomorrow),
+              )
+              .where(
+                'deliveryDate',
+                isLessThan: firestore.Timestamp.fromDate(tomorrowEnd),
+              )
+              .get();
 
-      final allSubscriptions = await _firestore
-          .collection('subscriptions')
-          .get();
+      final allSubscriptions =
+          await _firestore.collection('subscriptions').get();
 
       int activeSubscriptionCount = 0;
       List<Subscription> validActiveSubscriptions = [];
