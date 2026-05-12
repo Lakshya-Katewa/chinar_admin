@@ -7,9 +7,66 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:701191082956:android:942e8121a696f06abdc369",
+        "android_client_info": {
+          "package_name": "com.chinar.dairy.admin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmpIdFdT3ivxyovxZOKB2GBh1kk3FMRgg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:701191082956:android:95d66ecbb6b2893ebdc369",
         "android_client_info": {
           "package_name": "com.chinardairy.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmpIdFdT3ivxyovxZOKB2GBh1kk3FMRgg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:701191082956:android:8756722ab0c8c80cbdc369",
+        "android_client_info": {
+          "package_name": "com.example.admin_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmpIdFdT3ivxyovxZOKB2GBh1kk3FMRgg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:701191082956:android:cdc1028d05862141bdc369",
+        "android_client_info": {
+          "package_name": "com.example.chinar_delivery_boy_app"
         }
       },
       "oauth_client": [],

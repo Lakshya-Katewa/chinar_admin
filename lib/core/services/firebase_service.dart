@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart' as storage;
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import '../models/area.dart';
 import '../models/banner.dart';
 import '../models/customer.dart';
@@ -16,10 +17,8 @@ class FirebaseService {
   static final firestore.FirebaseFirestore _firestore =
       firestore.FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
-  static final storage.FirebaseStorage _storage =
-      storage.FirebaseStorage.instance;
+  static final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  // --- NEW: DAILY SETTLEMENT FOR STALE ORDERS (REQ 2) ---
   static Future<void> runDailySettlement() async {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
@@ -100,10 +99,35 @@ class FirebaseService {
   }
 
   static Future<void> addDeliveryPerson(DeliveryPerson person) async {
-    await _firestore
-        .collection('delivery_boys')
-        .doc(person.id)
-        .set(person.toFirestore());
+    FirebaseApp? tempApp;
+    try {
+      tempApp = await Firebase.initializeApp(
+        name: 'tempAccount_${DateTime.now().millisecondsSinceEpoch}',
+        options: Firebase.app().options,
+      );
+
+      UserCredential cred = await FirebaseAuth.instanceFor(
+        app: tempApp,
+      ).createUserWithEmailAndPassword(
+        email: person.email,
+        password: person.password,
+      );
+
+      String newUid = cred.user!.uid;
+
+      final personWithAuthId = person.copyWith(id: newUid);
+
+      await _firestore
+          .collection('delivery_boys')
+          .doc(newUid)
+          .set(personWithAuthId.toFirestore());
+    } catch (e) {
+      throw Exception('Failed to create delivery account: $e');
+    } finally {
+      if (tempApp != null) {
+        await tempApp.delete();
+      }
+    }
   }
 
   static Future<void> updateDeliveryPerson(DeliveryPerson person) async {
@@ -118,13 +142,30 @@ class FirebaseService {
     required String productId,
   }) async {
     try {
-      final ref = _storage.ref('product_images/$productId');
-      final uploadTask = ref.putFile(file);
-      final snapshot = await uploadTask.whenComplete(() => {});
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-      return downloadUrl;
+      final String path = 'product_images/$productId';
+      final ref = _storage.ref().child(path);
+
+      final bytes = await file.readAsBytes();
+      final metadata = SettableMetadata(contentType: 'image/jpeg');
+
+      // 1. Upload the image
+      await ref.putData(bytes, metadata);
+
+      // 2. The Retry Loop: Wait for Firebase to safely generate the token URL
+      for (int i = 0; i < 4; i++) {
+        try {
+          // This gets the official URL with the required ?token= access key
+          return await ref.getDownloadURL();
+        } catch (e) {
+          if (i == 3) rethrow; // If it fails 4 times, throw the error
+          await Future.delayed(
+            const Duration(milliseconds: 1500),
+          ); // Wait 1.5s and retry
+        }
+      }
+      throw Exception('Could not fetch image URL.');
     } catch (e) {
-      throw Exception('Error uploading image: $e');
+      throw Exception('Upload failed: $e');
     }
   }
 
@@ -133,15 +174,29 @@ class FirebaseService {
     required String bannerId,
   }) async {
     try {
-      final ref = _storage.ref('banner_images/$bannerId');
-      final uploadTask = ref.putFile(file);
-      final snapshot = await uploadTask.whenComplete(() => {});
-      final downloadUrl = await snapshot.ref.getDownloadURL();
-      return downloadUrl;
+      final String path = 'banner_images/$bannerId';
+      final ref = _storage.ref().child(path);
+
+      final bytes = await file.readAsBytes();
+      final metadata = SettableMetadata(contentType: 'image/jpeg');
+
+      await ref.putData(bytes, metadata);
+
+      for (int i = 0; i < 4; i++) {
+        try {
+          return await ref.getDownloadURL();
+        } catch (e) {
+          if (i == 3) rethrow;
+          await Future.delayed(const Duration(milliseconds: 1500));
+        }
+      }
+      throw Exception('Could not fetch banner URL.');
     } catch (e) {
-      throw Exception('Error uploading banner image: $e');
+      throw Exception('Upload failed: $e');
     }
   }
+
+  // =========================================================================
 
   static Future<User?> signInWithEmailAndPassword(
     String email,
@@ -176,7 +231,6 @@ class FirebaseService {
   }
 
   static Future<void> addBanner(Banner banner) async {
-    // FIX: Using .set() ensures the Firestore ID matches the Image ID
     await _firestore
         .collection('banners')
         .doc(banner.id)
@@ -470,7 +524,6 @@ class FirebaseService {
     }
   }
 
-  // --- REQ 3: UPDATED SUBSCRIPTION LOGIC ---
   static bool _isSubscriptionActiveToday(
     Subscription subscription,
     DateTime today,

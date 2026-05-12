@@ -42,10 +42,10 @@ class _AddEditDeliveryPersonDialogState
       _emailController.text = widget.person!.email;
       _passwordController.text = widget.person!.password;
       _isActive = widget.person!.isActive;
-      _ratePerUnitController.text =
-          widget.person!.ratePerUnitQuantity.toString();
-      _bonusPerUnitController.text =
-          widget.person!.bonusPerUnitQuantity.toString();
+      _ratePerUnitController.text = widget.person!.ratePerUnitQuantity
+          .toString();
+      _bonusPerUnitController.text = widget.person!.bonusPerUnitQuantity
+          .toString();
     } else {
       _ratePerUnitController.text = '2';
       _bonusPerUnitController.text = '0';
@@ -57,7 +57,6 @@ class _AddEditDeliveryPersonDialogState
       _selectedAreas = allAreas
           .where((area) => widget.person!.assignedAreas.contains(area.areaCode))
           .toList();
-      // Use post-frame callback to avoid calling setState during build
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           setState(() {
@@ -85,8 +84,9 @@ class _AddEditDeliveryPersonDialogState
     if (_selectedAreas.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Please select at least one assigned area.'),
-            backgroundColor: Colors.red),
+          content: Text('Please select at least one assigned area.'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -106,8 +106,7 @@ class _AddEditDeliveryPersonDialogState
         createdAt: widget.person?.createdAt ?? now,
         updatedAt: widget.person != null ? now : null,
         ratePerUnitQuantity: double.parse(_ratePerUnitController.text.trim()),
-        bonusPerUnitQuantity:
-            double.parse(_bonusPerUnitController.text.trim()),
+        bonusPerUnitQuantity: double.parse(_bonusPerUnitController.text.trim()),
       );
 
       final notifier = ref.read(deliveryPersonNotifierProvider.notifier);
@@ -122,9 +121,11 @@ class _AddEditDeliveryPersonDialogState
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(widget.person == null
-                ? 'Delivery person added successfully'
-                : 'Delivery person updated successfully'),
+            content: Text(
+              widget.person == null
+                  ? 'Delivery person added successfully'
+                  : 'Delivery person updated successfully',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -133,8 +134,9 @@ class _AddEditDeliveryPersonDialogState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Error saving delivery person: $e'),
-              backgroundColor: Colors.red),
+            content: Text('Error saving delivery person: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -155,14 +157,17 @@ class _AddEditDeliveryPersonDialogState
               content: SizedBox(
                 width: 300,
                 child: allAreas.isEmpty
-                    ? const Center(child: Text('No areas found. Please add areas first.'))
+                    ? const Center(
+                        child: Text('No areas found. Please add areas first.'),
+                      )
                     : ListView.builder(
                         shrinkWrap: true,
                         itemCount: allAreas.length,
                         itemBuilder: (context, index) {
                           final area = allAreas[index];
-                          final isSelected =
-                              currentlySelected.any((a) => a.id == area.id);
+                          final isSelected = currentlySelected.any(
+                            (a) => a.id == area.id,
+                          );
                           return CheckboxListTile(
                             title: Text(area.name),
                             subtitle: Text(area.areaCode),
@@ -172,8 +177,9 @@ class _AddEditDeliveryPersonDialogState
                                 if (value == true) {
                                   currentlySelected.add(area);
                                 } else {
-                                  currentlySelected
-                                      .removeWhere((a) => a.id == area.id);
+                                  currentlySelected.removeWhere(
+                                    (a) => a.id == area.id,
+                                  );
                                 }
                               });
                             },
@@ -207,14 +213,13 @@ class _AddEditDeliveryPersonDialogState
   Widget build(BuildContext context) {
     final areasAsync = ref.watch(areasProvider);
 
-    // This ensures that the selected areas are initialized once the data is available
     if (areasAsync is AsyncData<List<Area>>) {
       _initializeSelectedAreas(areasAsync.value!);
     }
 
     return Dialog(
       child: Container(
-        width: 450,
+        width: double.infinity, // FIX: Changed from 450 to make it responsive
         constraints: const BoxConstraints(maxHeight: 700),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -231,19 +236,23 @@ class _AddEditDeliveryPersonDialogState
               child: Row(
                 children: [
                   Icon(
-                      widget.person == null ? Icons.person_add : Icons.person,
-                      color: Theme.of(context).primaryColor),
-                  const SizedBox(width: 8),
-                  Text(
-                    widget.person == null
-                        ? 'Add Delivery Person'
-                        : 'Edit Delivery Person',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
-                        ),
+                    widget.person == null ? Icons.person_add : Icons.person,
+                    color: Theme.of(context).primaryColor,
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
+                  // FIX: Wrapped the title in Expanded to prevent overflow
+                  Expanded(
+                    child: Text(
+                      widget.person == null
+                          ? 'Add Delivery Person'
+                          : 'Edit Delivery Person',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).primaryColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(Icons.close),
@@ -299,8 +308,9 @@ class _AddEditDeliveryPersonDialogState
                           validator: (value) {
                             if (value?.trim().isEmpty == true)
                               return 'Please enter email address';
-                            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                                .hasMatch(value!.trim())) {
+                            if (!RegExp(
+                              r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                            ).hasMatch(value!.trim())) {
                               return 'Please enter a valid email address';
                             }
                             return null;
@@ -315,11 +325,14 @@ class _AddEditDeliveryPersonDialogState
                             border: const OutlineInputBorder(),
                             prefixIcon: const Icon(Icons.lock),
                             suffixIcon: IconButton(
-                              icon: Icon(_obscurePassword
-                                  ? Icons.visibility
-                                  : Icons.visibility_off),
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
+                              ),
                               onPressed: () => setState(
-                                  () => _obscurePassword = !_obscurePassword),
+                                () => _obscurePassword = !_obscurePassword,
+                              ),
                             ),
                             helperText:
                                 'Password for delivery person app login',
@@ -354,7 +367,9 @@ class _AddEditDeliveryPersonDialogState
                                   spacing: 8,
                                   runSpacing: 8,
                                   children: _selectedAreas
-                                      .map((area) => Chip(label: Text(area.name)))
+                                      .map(
+                                        (area) => Chip(label: Text(area.name)),
+                                      )
                                       .toList(),
                                 ),
                               const SizedBox(height: 8),
@@ -368,7 +383,8 @@ class _AddEditDeliveryPersonDialogState
                                     label: const Text('Select Areas'),
                                   ),
                                   loading: () => const Center(
-                                      child: CircularProgressIndicator()),
+                                    child: CircularProgressIndicator(),
+                                  ),
                                   error: (e, s) =>
                                       const Text('Could not load areas'),
                                 ),
@@ -448,26 +464,36 @@ class _AddEditDeliveryPersonDialogState
                   bottomRight: Radius.circular(12),
                 ),
               ),
+              // FIX: Wrapped bottom buttons in Expanded to prevent overflow and adjust spacing
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () => Navigator.pop(context),
-                    child: const Text('Cancel'),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () => Navigator.pop(context),
+                      child: const Text('Cancel', maxLines: 1),
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _saveDeliveryPerson,
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : Text(widget.person == null
-                            ? 'Add Person'
-                            : 'Update Person'),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _saveDeliveryPerson,
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              widget.person == null
+                                  ? 'Add Person'
+                                  : 'Update Person',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                    ),
                   ),
                 ],
               ),
