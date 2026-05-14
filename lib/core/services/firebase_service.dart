@@ -148,19 +148,14 @@ class FirebaseService {
       final bytes = await file.readAsBytes();
       final metadata = SettableMetadata(contentType: 'image/jpeg');
 
-      // 1. Upload the image
       await ref.putData(bytes, metadata);
 
-      // 2. The Retry Loop: Wait for Firebase to safely generate the token URL
       for (int i = 0; i < 4; i++) {
         try {
-          // This gets the official URL with the required ?token= access key
           return await ref.getDownloadURL();
         } catch (e) {
-          if (i == 3) rethrow; // If it fails 4 times, throw the error
-          await Future.delayed(
-            const Duration(milliseconds: 1500),
-          ); // Wait 1.5s and retry
+          if (i == 3) rethrow;
+          await Future.delayed(const Duration(milliseconds: 1500));
         }
       }
       throw Exception('Could not fetch image URL.');
@@ -195,8 +190,6 @@ class FirebaseService {
       throw Exception('Upload failed: $e');
     }
   }
-
-  // =========================================================================
 
   static Future<User?> signInWithEmailAndPassword(
     String email,
@@ -318,10 +311,11 @@ class FirebaseService {
     required String personId,
     DateTime? lastPaymentDate,
   }) {
+    // FIXED: Changed 'deliveryPersonId' to 'deliveredBy'
     firestore.Query query = _firestore
         .collection('orders')
         .where('status', isEqualTo: OrderStatus.delivered.name)
-        .where('deliveryPersonId', isEqualTo: personId);
+        .where('deliveredBy', isEqualTo: personId);
 
     if (lastPaymentDate != null) {
       query = query.where(

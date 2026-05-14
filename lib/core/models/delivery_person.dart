@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'order.dart' as myOrder; // Import the Order model for the calculation method
+import 'order.dart' as myOrder;
 import 'payment_record.dart';
 
 class DeliveryPerson {
@@ -17,6 +17,10 @@ class DeliveryPerson {
   final DateTime? lastPaymentDate;
   final List<PaymentRecord> paymentHistory;
 
+  // NEW: Added earnings tracking fields
+  final double unpaidEarnings;
+  final double totalEarnings;
+
   const DeliveryPerson({
     required this.id,
     required this.name,
@@ -31,6 +35,8 @@ class DeliveryPerson {
     required this.password,
     this.lastPaymentDate,
     this.paymentHistory = const [],
+    this.unpaidEarnings = 0.0, // Default to 0.0
+    this.totalEarnings = 0.0, // Default to 0.0
   });
 
   factory DeliveryPerson.fromFirestore(DocumentSnapshot doc) {
@@ -40,7 +46,8 @@ class DeliveryPerson {
       name: data['name']?.toString() ?? '',
       phone: data['phone']?.toString() ?? '',
       email: data['email']?.toString() ?? '',
-      assignedAreas: (data['assignedAreas'] as List<dynamic>?)
+      assignedAreas:
+          (data['assignedAreas'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
@@ -55,10 +62,14 @@ class DeliveryPerson {
               .toDouble(),
       password: data['password']?.toString() ?? '',
       lastPaymentDate: (data['lastPaymentDate'] as Timestamp?)?.toDate(),
-      paymentHistory: (data['paymentHistory'] as List<dynamic>?)
+      paymentHistory:
+          (data['paymentHistory'] as List<dynamic>?)
               ?.map((e) => PaymentRecord.fromMap(e as Map<String, dynamic>))
               .toList() ??
           [],
+      // NEW: Extract from Firestore
+      unpaidEarnings: (data['unpaidEarnings'] ?? 0.0).toDouble(),
+      totalEarnings: (data['totalEarnings'] ?? 0.0).toDouble(),
     );
   }
 
@@ -77,25 +88,25 @@ class DeliveryPerson {
       if (lastPaymentDate != null)
         'lastPaymentDate': Timestamp.fromDate(lastPaymentDate!),
       'paymentHistory': paymentHistory.map((e) => e.toMap()).toList(),
+      // NEW: Save back to Firestore
+      'unpaidEarnings': unpaidEarnings,
+      'totalEarnings': totalEarnings,
     };
   }
 
-  // --- NEW EARNINGS CALCULATION LOGIC ---
   double calculateEarnings(List<myOrder.Order> deliveredOrders) {
-    double totalEarnings = 0.0;
+    double calculatedEarnings = 0.0;
 
-    // Loop through each delivered order
     for (final order in deliveredOrders) {
       double totalQuantityInOrder = 0;
-      // Loop through each item in the order to sum up the quantities
       for (final item in order.items) {
         totalQuantityInOrder += item.quantity;
       }
-      // Calculate earnings for this order and add to the total
-      totalEarnings += (totalQuantityInOrder * ratePerUnitQuantity) +
+      calculatedEarnings +=
+          (totalQuantityInOrder * ratePerUnitQuantity) +
           (totalQuantityInOrder * bonusPerUnitQuantity);
     }
-    return totalEarnings;
+    return calculatedEarnings;
   }
 
   DeliveryPerson copyWith({
@@ -112,6 +123,8 @@ class DeliveryPerson {
     String? password,
     DateTime? lastPaymentDate,
     List<PaymentRecord>? paymentHistory,
+    double? unpaidEarnings,
+    double? totalEarnings,
   }) {
     return DeliveryPerson(
       id: id ?? this.id,
@@ -127,6 +140,8 @@ class DeliveryPerson {
       password: password ?? this.password,
       lastPaymentDate: lastPaymentDate ?? this.lastPaymentDate,
       paymentHistory: paymentHistory ?? this.paymentHistory,
+      unpaidEarnings: unpaidEarnings ?? this.unpaidEarnings,
+      totalEarnings: totalEarnings ?? this.totalEarnings,
     );
   }
 
