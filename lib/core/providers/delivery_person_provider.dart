@@ -10,20 +10,21 @@ final deliveryPersonsProvider = StreamProvider<List<DeliveryPerson>>((ref) {
 });
 
 // Provider to calculate earnings for a specific delivery person
-final earningsProvider = StreamProvider.family<double, DeliveryPerson>((
-  ref,
-  person,
-) {
+// UPDATED: Now uses a Record to force cache invalidation when lastPaymentDate changes
+final earningsProvider = StreamProvider.family<
+  double,
+  ({DeliveryPerson person, DateTime? lastPaymentDate})
+>((ref, arg) {
   final ordersStream = FirebaseService.getDeliveredOrdersForPersonSince(
-    personId: person.id,
-    lastPaymentDate: person.lastPaymentDate,
+    personId: arg.person.id,
+    lastPaymentDate: arg.lastPaymentDate,
   );
 
   return ordersStream.map((orders) {
     if (orders.isEmpty) {
       return 0.0;
     }
-    return person.calculateEarnings(orders);
+    return arg.person.calculateEarnings(orders);
   });
 });
 

@@ -262,7 +262,6 @@ class DeliveryPersonsScreen extends ConsumerWidget {
               const SizedBox(height: 2),
               _buildInfoRow(Icons.location_on, person.assignedAreas.join(', ')),
               const SizedBox(height: 4),
-              // --- FIX: Replaced Flexible with Expanded, and removed Flexible from Icon row ---
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -403,8 +402,12 @@ class DeliveryPersonsScreen extends ConsumerWidget {
                       padding: const EdgeInsets.all(12),
                       child: Consumer(
                         builder: (context, ref, child) {
+                          // UPDATED: Passing the Record structure to force new cache on date change
                           final earningsAsync = ref.watch(
-                            earningsProvider(person),
+                            earningsProvider((
+                              person: person,
+                              lastPaymentDate: person.lastPaymentDate,
+                            )),
                           );
                           return SingleChildScrollView(
                             child: Column(
