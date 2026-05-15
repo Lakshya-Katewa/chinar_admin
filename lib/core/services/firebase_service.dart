@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' as firestore;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -78,9 +79,11 @@ class FirebaseService {
       }
 
       await batch.commit();
-      print("Daily settlement completed successfully.");
+      if (kDebugMode) {
+        print("Daily settlement completed successfully.");
+      }
     } catch (e) {
-      print("Error running daily settlement: $e");
+      if (kDebugMode) print("Error running daily settlement: $e");
       throw Exception('Failed to run daily settlement: $e');
     }
   }
@@ -242,7 +245,7 @@ class FirebaseService {
       final ref = _storage.ref('banner_images/$bannerId');
       await ref.delete();
     } catch (e) {
-      print("Failed to delete banner image: $e");
+      if (kDebugMode) print("Failed to delete banner image: $e");
     }
     await _firestore.collection('banners').doc(bannerId).delete();
   }
@@ -311,7 +314,6 @@ class FirebaseService {
     required String personId,
     DateTime? lastPaymentDate,
   }) {
-    // FIXED: Changed 'deliveryPersonId' to 'deliveredBy'
     firestore.Query query = _firestore
         .collection('orders')
         .where('status', isEqualTo: OrderStatus.delivered.name)
@@ -324,10 +326,19 @@ class FirebaseService {
       );
     }
 
-    return query.snapshots().map(
-      (snapshot) =>
-          snapshot.docs.map((doc) => Order.fromFirestore(doc)).toList(),
-    );
+    return query.snapshots().map((snapshot) {
+      List<Order> orders = [];
+      for (var doc in snapshot.docs) {
+        try {
+          orders.add(Order.fromFirestore(doc));
+        } catch (e) {
+          // Ignores bad orders to prevent the entire riverpod stream from crashing,
+          // allowing Unpaid Earnings to still display valid records
+          if (kDebugMode) print('Failed to parse order for earnings check: $e');
+        }
+      }
+      return orders;
+    });
   }
 
   static Future<void> updateOrderStatus(
@@ -466,13 +477,22 @@ class FirebaseService {
       double todayRevenue = 0;
       for (var doc in todayDeliveries.docs) {
         try {
-          final order = Order.fromFirestore(doc);
-          if (order.status == OrderStatus.delivered) {
-            double orderTotal = 0;
-            for (var item in order.items) {
-              orderTotal += item.price * item.quantity;
+          final data = doc.data();
+          if (data['status'] == 'delivered' ||
+              data['status'] == OrderStatus.delivered.name) {
+            // Safely count Subscription Order revenue bypassing standard Item parsing overhead
+            if (data['type'] == 'subscription' ||
+                data['subscriptionId'] != null) {
+              todayRevenue += (data['totalAmount'] ?? 0.0).toDouble();
+            } else {
+              // Calculate standard order totals
+              final order = Order.fromFirestore(doc);
+              double orderTotal = 0;
+              for (var item in order.items) {
+                orderTotal += item.price * item.quantity;
+              }
+              todayRevenue += orderTotal;
             }
-            todayRevenue += orderTotal;
           }
         } catch (e) {
           continue;

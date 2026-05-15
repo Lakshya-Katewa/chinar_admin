@@ -352,6 +352,9 @@ class DeliveryPersonsScreen extends ConsumerWidget {
     WidgetRef ref,
     DeliveryPerson person,
   ) {
+    // FIX: Get the earnings directly from the person object instead of recalculating
+    final double currentEarnings = person.unpaidEarnings;
+
     showDialog(
       context: context,
       builder:
@@ -400,135 +403,109 @@ class DeliveryPersonsScreen extends ConsumerWidget {
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.all(12),
-                      child: Consumer(
-                        builder: (context, ref, child) {
-                          // UPDATED: Passing the Record structure to force new cache on date change
-                          final earningsAsync = ref.watch(
-                            earningsProvider((
-                              person: person,
-                              lastPaymentDate: person.lastPaymentDate,
-                            )),
-                          );
-                          return SingleChildScrollView(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildDetailRow('Phone', person.phone),
+                            _buildDetailRow('Email', person.email),
+                            _buildDetailRow(
+                              'Assigned Area',
+                              person.assignedAreas.join(', '),
+                            ),
+                            _buildDetailRow(
+                              'Status',
+                              person.isActive ? 'Active' : 'Inactive',
+                            ),
+                            _buildDetailRow(
+                              'Added',
+                              DateFormat(
+                                'MMM dd, yyyy',
+                              ).format(person.createdAt),
+                            ),
+                            if (person.updatedAt != null)
+                              _buildDetailRow(
+                                'Updated',
+                                DateFormat(
+                                  'MMM dd, yyyy',
+                                ).format(person.updatedAt!),
+                              ),
+                            const Divider(height: 24),
+
+                            // UPDATED UI: Showing static DB earnings
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                _buildDetailRow('Phone', person.phone),
-                                _buildDetailRow('Email', person.email),
-                                _buildDetailRow(
-                                  'Assigned Area',
-                                  person.assignedAreas.join(', '),
-                                ),
-                                _buildDetailRow(
-                                  'Status',
-                                  person.isActive ? 'Active' : 'Inactive',
-                                ),
-                                _buildDetailRow(
-                                  'Added',
-                                  DateFormat(
-                                    'MMM dd, yyyy',
-                                  ).format(person.createdAt),
-                                ),
-                                if (person.updatedAt != null)
-                                  _buildDetailRow(
-                                    'Updated',
-                                    DateFormat(
-                                      'MMM dd, yyyy',
-                                    ).format(person.updatedAt!),
-                                  ),
-                                const Divider(height: 24),
-                                earningsAsync.when(
-                                  data:
-                                      (earnings) => Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          Text(
-                                            'Current Unpaid Earnings',
-                                            style:
-                                                Theme.of(
-                                                  context,
-                                                ).textTheme.titleSmall,
-                                          ),
-                                          Text(
-                                            '₹${earnings.toStringAsFixed(2)}',
-                                            style: Theme.of(
-                                              context,
-                                            ).textTheme.headlineSmall?.copyWith(
-                                              color: Colors.green.shade700,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          ElevatedButton.icon(
-                                            onPressed:
-                                                earnings > 0
-                                                    ? () => _handlePayment(
-                                                      context,
-                                                      ref,
-                                                      person,
-                                                      earnings,
-                                                    )
-                                                    : null,
-                                            icon: const Icon(Icons.payment),
-                                            label: const Text('Mark as Paid'),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.green,
-                                              foregroundColor: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                  loading:
-                                      () => const Center(
-                                        child: CircularProgressIndicator(),
-                                      ),
-                                  error:
-                                      (e, s) => Text(
-                                        'Error calculating earnings: $e',
-                                      ),
-                                ),
-                                const Divider(height: 24),
                                 Text(
-                                  'Payment History',
+                                  'Current Unpaid Earnings',
                                   style: Theme.of(context).textTheme.titleSmall,
                                 ),
-                                const SizedBox(height: 8),
-                                if (person.paymentHistory == null ||
-                                    person.paymentHistory.isEmpty)
-                                  const Center(
-                                    child: Text(
-                                      'No payments recorded.',
-                                      style: TextStyle(color: Colors.grey),
-                                    ),
-                                  )
-                                else
-                                  ListView.separated(
-                                    shrinkWrap: true,
-                                    physics:
-                                        const NeverScrollableScrollPhysics(),
-                                    itemCount: person.paymentHistory.length,
-                                    separatorBuilder:
-                                        (_, __) => const Divider(),
-                                    itemBuilder: (context, index) {
-                                      final payment =
-                                          person.paymentHistory.reversed
-                                              .toList()[index];
-                                      return ListTile(
-                                        title: Text(
-                                          '₹${payment.amount.toStringAsFixed(2)}',
-                                        ),
-                                        subtitle: Text(
-                                          'Paid on ${DateFormat.yMMMd().add_jm().format(payment.paymentDate)}',
-                                        ),
-                                        dense: true,
-                                      );
-                                    },
+                                Text(
+                                  '₹${currentEarnings.toStringAsFixed(2)}',
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.headlineSmall?.copyWith(
+                                    color: Colors.green.shade700,
+                                    fontWeight: FontWeight.bold,
                                   ),
+                                ),
+                                const SizedBox(height: 8),
+                                ElevatedButton.icon(
+                                  onPressed:
+                                      currentEarnings > 0
+                                          ? () => _handlePayment(
+                                            context,
+                                            ref,
+                                            person,
+                                            currentEarnings,
+                                          )
+                                          : null,
+                                  icon: const Icon(Icons.payment),
+                                  label: const Text('Mark as Paid'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
                               ],
                             ),
-                          );
-                        },
+                            const Divider(height: 24),
+                            Text(
+                              'Payment History',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: 8),
+                            if (person.paymentHistory == null ||
+                                person.paymentHistory.isEmpty)
+                              const Center(
+                                child: Text(
+                                  'No payments recorded.',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              )
+                            else
+                              ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: person.paymentHistory.length,
+                                separatorBuilder: (_, __) => const Divider(),
+                                itemBuilder: (context, index) {
+                                  final payment =
+                                      person.paymentHistory.reversed
+                                          .toList()[index];
+                                  return ListTile(
+                                    title: Text(
+                                      '₹${payment.amount.toStringAsFixed(2)}',
+                                    ),
+                                    subtitle: Text(
+                                      'Paid on ${DateFormat.yMMMd().add_jm().format(payment.paymentDate)}',
+                                    ),
+                                    dense: true,
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -604,10 +581,12 @@ class DeliveryPersonsScreen extends ConsumerWidget {
         paymentDate: now,
       );
 
+      // FIX: Reset unpaidEarnings to 0 when payment is made
       final updatedPerson = person.copyWith(
         lastPaymentDate: now,
         paymentHistory: [...(person.paymentHistory ?? []), newPayment],
         updatedAt: now,
+        unpaidEarnings: 0.0,
       );
 
       try {
